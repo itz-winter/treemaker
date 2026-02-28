@@ -1,0 +1,119 @@
+<Window x:Class="FamilyTreeApp.UI.Windows.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings" 
+        Height="500" Width="400"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource PrimaryBackgroundBrush}">
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Header -->
+        <TextBlock Grid.Row="0" Text="Settings" FontSize="20" FontWeight="Bold" 
+                   Foreground="{DynamicResource PrimaryTextBrush}" Margin="16"/>
+        
+        <!-- Settings Content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16,0">
+                
+                <!-- General Section -->
+                <TextBlock Text="General" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,8"/>
+                
+                <CheckBox x:Name="DarkModeCheckBox" Content="Dark Mode" IsChecked="True"/>
+                <CheckBox x:Name="ShowGenderCheckBox" Content="Show Gender Icons" IsChecked="True"/>
+                <CheckBox x:Name="ShowGridCheckBox" Content="Show Grid" IsChecked="False"/>
+                
+                <!-- Rules Section -->
+                <TextBlock Text="Rules" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,16,0,4"/>
+                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,8"/>
+                
+                <CheckBox x:Name="AllowIncestCheckBox" Content="Allow Incest Relationships"/>
+                <CheckBox x:Name="AllowThreesomeCheckBox" Content="Allow Multiple Parents (Threesome+)"/>
+                
+                <!-- Layout Section -->
+                <TextBlock Text="Layout" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,16,0,4"/>
+                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,8"/>
+                
+                <TextBlock Text="Alignment"/>
+                <ComboBox x:Name="AlignmentComboBox">
+                    <ComboBoxItem Content="Top-Down" Tag="TopDown"/>
+                    <ComboBoxItem Content="Left-Right" Tag="LeftRight"/>
+                </ComboBox>
+                
+                <TextBlock Text="Line Style"/>
+                <ComboBox x:Name="LineStyleComboBox">
+                    <ComboBoxItem Content="Curves (Bezier)" Tag="Curves"/>
+                    <ComboBoxItem Content="Square (Orthogonal)" Tag="Square"/>
+                </ComboBox>
+                
+                <TextBlock Text="Layout Mode"/>
+                <ComboBox x:Name="LayoutModeComboBox">
+                    <ComboBoxItem Content="Fixed (Auto-arrange)" Tag="Fixed"/>
+                    <ComboBoxItem Content="Free (Manual placement)" Tag="Free"/>
+                </ComboBox>
+                
+                <!-- Royalty Section -->
+                <TextBlock Text="Royalty" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,16,0,4"/>
+                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,8"/>
+                
+                <TextBlock Text="Crown Display"/>
+                <ComboBox x:Name="CrownDisplayComboBox">
+                    <ComboBoxItem Content="Queen Only" Tag="QueenOnly"/>
+                    <ComboBoxItem Content="King Only" Tag="KingOnly"/>
+                    <ComboBoxItem Content="Both" Tag="Both"/>
+                    <ComboBoxItem Content="None" Tag="None"/>
+                </ComboBox>
+                
+                <!-- Font Section -->
+                <TextBlock Text="Default Font" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,16,0,4"/>
+                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,8"/>
+                
+                <TextBlock Text="Font Family"/>
+                <ComboBox x:Name="FontFamilyComboBox" Margin="0,0,0,8"/>
+                
+                <TextBlock Text="Font Size"/>
+                <ComboBox x:Name="FontSizeComboBox" Margin="0,0,0,8">
+                    <ComboBoxItem Content="10" Tag="10"/>
+                    <ComboBoxItem Content="11" Tag="11"/>
+                    <ComboBoxItem Content="12" Tag="12"/>
+                    <ComboBoxItem Content="13" Tag="13"/>
+                    <ComboBoxItem Content="14" Tag="14"/>
+                    <ComboBoxItem Content="16" Tag="16"/>
+                    <ComboBoxItem Content="18" Tag="18"/>
+                    <ComboBoxItem Content="20" Tag="20"/>
+                    <ComboBoxItem Content="24" Tag="24"/>
+                </ComboBox>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <CheckBox x:Name="FontBoldCheckBox" Content="Bold" Margin="0,0,16,0"/>
+                    <CheckBox x:Name="FontItalicCheckBox" Content="Italic"/>
+                </StackPanel>
+                
+                <TextBlock x:Name="FontPreviewText" Text="Preview: The quick brown fox" 
+                           FontSize="14" Margin="0,12,0,0" Padding="8" 
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           Background="{DynamicResource TertiaryBackgroundBrush}"/>
+                
+                <!-- Confirmations Section -->
+                <TextBlock Text="Confirmations" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,16,0,4"/>
+                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,8"/>
+                
+                <CheckBox x:Name="ConfirmUnsavedChangesCheckBox" Content="Prompt when closing dialogs with unsaved changes" IsChecked="True"/>
+                
+            </StackPanel>
+        </ScrollViewer>
+        
+        <!-- Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="8">
+            <Button x:Name="RestoreDefaultsButton" Content="Restore Defaults" Click="RestoreDefaults_Click"/>
+            <Button x:Name="SaveButton" Content="Save" Click="Save_Click"/>
+            <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,270 @@
+<UserControl x:Class="FamilyTreeApp.UI.Controls.NodeControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:FamilyTreeApp.UI.Controls"
+             mc:Ignorable="d" 
+             d:DesignHeight="80" d:DesignWidth="150"
+             MouseEnter="UserControl_MouseEnter"
+             MouseLeave="UserControl_MouseLeave"
+             MouseLeftButtonDown="UserControl_MouseLeftButtonDown"
+             MouseLeftButtonUp="UserControl_MouseLeftButtonUp"
+             MouseMove="UserControl_MouseMove">
+    
+    <UserControl.Resources>
+        <Style TargetType="Button" x:Key="ConnectionButtonStyle">
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Background" Value="#007ACC"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="10"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1C97EA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Blue circle style for connection points -->
+        <Style TargetType="Ellipse" x:Key="ConnectionPointStyle">
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="Fill" Value="#007ACC"/>
+            <Setter Property="Stroke" Value="#1C97EA"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="Cursor" Value="Cross"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+        </Style>
+    </UserControl.Resources>
+    
+    <Grid>
+        <!-- Top Connection Point (Blue Circle) -->
+        <Ellipse x:Name="TopConnectionPoint"
+                 Style="{StaticResource ConnectionPointStyle}"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Top"
+                 Margin="0,-6,0,0"
+                 PreviewMouseLeftButtonDown="TopConnectionPoint_MouseDown"
+                 ToolTip="Drag to connect (Parent)"/>
+        
+        <!-- Top Add Button (behind circle, for click-to-add) -->
+        <Button x:Name="TopAddButton" 
+                Style="{StaticResource ConnectionButtonStyle}"
+                Content="+"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,-25,0,0"
+                Click="AddParentButton_Click"
+                PreviewMouseLeftButtonDown="TopAddButton_PreviewMouseDown"
+                PreviewMouseLeftButtonUp="AddButton_PreviewMouseUp"
+                PreviewMouseMove="AddButton_PreviewMouseMove"
+                ToolTip="Add Parent (Click or Drag to connect)"/>
+        
+        <!-- Main Node Box -->
+        <Border x:Name="NodeBorder"
+                Background="{DynamicResource NodeBackgroundBrush}"
+                BorderBrush="{DynamicResource NodeBorderBrush}"
+                BorderThickness="2"
+                CornerRadius="5"
+                MinWidth="120"
+                MinHeight="60"
+                Padding="10">
+            <Border.ContextMenu>
+                <ContextMenu Opened="ContextMenu_Opened">
+                    <MenuItem Header="Edit Name" Click="EditName_Click"/>
+                    <MenuItem x:Name="GenderMenuItem" Header="Gender">
+                        <MenuItem Header="Female" Click="SetGender_Click" Tag="Female"/>
+                        <MenuItem Header="Male" Click="SetGender_Click" Tag="Male"/>
+                        <MenuItem Header="Non-binary/Other" Click="SetGender_Click" Tag="Other"/>
+                        <MenuItem Header="Unspecified" Click="SetGender_Click" Tag="Unspecified"/>
+                    </MenuItem>
+                    <MenuItem x:Name="AssignGroupMenuItem" Header="Assign Group"/>
+                    <Separator/>
+                    <MenuItem x:Name="RoyaltyMenuItem" Header="Royalty">
+                        <MenuItem Header="None" Click="SetRoyalty_Click" Tag="None"/>
+                        <MenuItem Header="King" Click="SetRoyalty_Click" Tag="King"/>
+                        <MenuItem Header="Queen" Click="SetRoyalty_Click" Tag="Queen"/>
+                        <MenuItem Header="Former King" Click="SetRoyalty_Click" Tag="FormerKing"/>
+                        <MenuItem Header="Former Queen" Click="SetRoyalty_Click" Tag="FormerQueen"/>
+                        <MenuItem Header="Prince" Click="SetRoyalty_Click" Tag="Prince"/>
+                        <MenuItem Header="Princess" Click="SetRoyalty_Click" Tag="Princess"/>
+                        <MenuItem Header="Heir" Click="SetRoyalty_Click" Tag="Heir"/>
+                    </MenuItem>
+                    <MenuItem x:Name="DeceasedMenuItem" Header="Mark Deceased" Click="MarkDeceased_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Line Indicators">
+                        <MenuItem x:Name="ContinuationUpMenuItem" Header="Show Continuation Up (ancestors)" IsCheckable="True" Click="ToggleContinuationUp_Click"/>
+                        <MenuItem x:Name="ContinuationDownMenuItem" Header="Show Continuation Down (descendants)" IsCheckable="True" Click="ToggleContinuationDown_Click"/>
+                        <MenuItem x:Name="NoDescendantsMenuItem" Header="Show No Descendants (X)" IsCheckable="True" Click="ToggleNoDescendants_Click"/>
+                    </MenuItem>
+                    <MenuItem x:Name="AdoptedMenuItem" Header="Adopted" IsCheckable="True" Click="ToggleAdopted_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Duplicate" Click="Duplicate_Click"/>
+                    <MenuItem Header="Disconnect All" Click="DisconnectAll_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Delete" Click="Delete_Click" Foreground="IndianRed"/>
+                </ContextMenu>
+            </Border.ContextMenu>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Name Row -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <!-- Name (display mode) -->
+                    <TextBlock x:Name="NameText"
+                               Text="New Person"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               HorizontalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="100"
+                               MouseLeftButtonDown="NameText_MouseLeftButtonDown"/>
+                </StackPanel>
+                
+                <!-- Name (edit mode) -->
+                <TextBox x:Name="NameEditBox"
+                         Grid.Row="0"
+                         FontSize="14"
+                         FontWeight="SemiBold"
+                         HorizontalAlignment="Center"
+                         MinWidth="80"
+                         Visibility="Collapsed"
+                         KeyDown="NameEditBox_KeyDown"
+                         LostFocus="NameEditBox_LostFocus"/>
+                
+                <!-- Deceased Marker -->
+                <StackPanel x:Name="DeceasedMarker" Grid.Row="1" 
+                            Orientation="Horizontal" 
+                            HorizontalAlignment="Center"
+                            Visibility="Collapsed">
+                    <TextBlock Text="✝" FontSize="10" Foreground="Gray" Margin="0,2,4,0"/>
+                    <TextBlock x:Name="DeathDateText" 
+                               FontSize="9" 
+                               Foreground="Gray" 
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- Gender Icon (top-left corner, drawn not emoji) -->
+        <Canvas x:Name="GenderIconCanvas"
+                Width="14" Height="14"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="-4,-4,0,0"
+                Visibility="Collapsed"/>
+        
+        <!-- Crown Icon (below the box, drawn not emoji) -->
+        <Canvas x:Name="CrownIconCanvas"
+                Width="20" Height="16"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,-20"
+                Visibility="Collapsed"/>
+        
+        <!-- Bottom Connection Point (Blue Circle) -->
+        <Ellipse x:Name="BottomConnectionPoint"
+                 Style="{StaticResource ConnectionPointStyle}"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Bottom"
+                 Margin="0,0,0,-6"
+                 PreviewMouseLeftButtonDown="BottomConnectionPoint_MouseDown"
+                 ToolTip="Drag to connect (Child)"/>
+        
+        <!-- Bottom Connection Button -->
+        <Button x:Name="BottomAddButton" 
+                Style="{StaticResource ConnectionButtonStyle}"
+                Content="+"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,-25"
+                Click="AddChildButton_Click"
+                PreviewMouseLeftButtonDown="BottomAddButton_PreviewMouseDown"
+                PreviewMouseLeftButtonUp="AddButton_PreviewMouseUp"
+                PreviewMouseMove="AddButton_PreviewMouseMove"
+                ToolTip="Add Child (Click or Drag to connect)"/>
+        
+        <!-- Left Connection Point (Blue Circle) -->
+        <Ellipse x:Name="LeftConnectionPoint"
+                 Style="{StaticResource ConnectionPointStyle}"
+                 HorizontalAlignment="Left"
+                 VerticalAlignment="Center"
+                 Margin="-6,0,0,0"
+                 PreviewMouseLeftButtonDown="LeftConnectionPoint_MouseDown"
+                 ToolTip="Drag to connect (Partner)"/>
+        
+        <!-- Left Connection Button -->
+        <Button x:Name="LeftAddButton" 
+                Style="{StaticResource ConnectionButtonStyle}"
+                Content="+"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Margin="-25,0,0,0"
+                Click="AddPartnerLeftButton_Click"
+                PreviewMouseLeftButtonDown="LeftAddButton_PreviewMouseDown"
+                PreviewMouseLeftButtonUp="AddButton_PreviewMouseUp"
+                PreviewMouseMove="AddButton_PreviewMouseMove"
+                ToolTip="Add Partner (Click or Drag to connect)"/>
+        
+        <!-- Right Connection Point (Blue Circle) -->
+        <Ellipse x:Name="RightConnectionPoint"
+                 Style="{StaticResource ConnectionPointStyle}"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Center"
+                 Margin="0,0,-6,0"
+                 PreviewMouseLeftButtonDown="RightConnectionPoint_MouseDown"
+                 ToolTip="Drag to connect (Partner)"/>
+        
+        <!-- Right Connection Button -->
+        <Button x:Name="RightAddButton" 
+                Style="{StaticResource ConnectionButtonStyle}"
+                Content="+"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Margin="0,0,-25,0"
+                Click="AddPartnerRightButton_Click"
+                PreviewMouseLeftButtonDown="RightAddButton_PreviewMouseDown"
+                PreviewMouseLeftButtonUp="AddButton_PreviewMouseUp"
+                PreviewMouseMove="AddButton_PreviewMouseMove"
+                ToolTip="Add Partner (Click or Drag to connect)"/>
+        
+        <!-- Corner Resize Handles (only visible when selected) -->
+        <Rectangle x:Name="ResizeTopLeft" Width="8" Height="8" 
+                   HorizontalAlignment="Left" VerticalAlignment="Top"
+                   Margin="-4,-4,0,0" Cursor="SizeNWSE"
+                   Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+        <Rectangle x:Name="ResizeTopRight" Width="8" Height="8" 
+                   HorizontalAlignment="Right" VerticalAlignment="Top"
+                   Margin="0,-4,-4,0" Cursor="SizeNESW"
+                   Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+        <Rectangle x:Name="ResizeBottomLeft" Width="8" Height="8" 
+                   HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                   Margin="-4,0,0,-4" Cursor="SizeNESW"
+                   Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+        <Rectangle x:Name="ResizeBottomRight" Width="8" Height="8" 
+                   HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                   Margin="0,0,-4,-4" Cursor="SizeNWSE"
+                   Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+    </Grid>
+</UserControl>

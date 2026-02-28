@@ -1,0 +1,99 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:FamilyTreeApp.UI.Controls">
+
+    <!-- DockablePanel Style -->
+    <Style TargetType="{x:Type controls:DockablePanel}">
+        <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="MinWidth" Value="100"/>
+        <Setter Property="MinHeight" Value="100"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:DockablePanel}">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- Header -->
+                            <Border x:Name="PART_Header"
+                                    Grid.Row="0" 
+                                    Background="{DynamicResource TertiaryBackgroundBrush}"
+                                    CornerRadius="4,4,0,0"
+                                    Padding="8,4"
+                                    Cursor="SizeAll">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Drag Handle -->
+                                    <TextBlock Grid.Column="0" 
+                                               Text="⋮⋮" 
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,6,0"/>
+                                    
+                                    <!-- Title -->
+                                    <TextBlock Grid.Column="1" 
+                                               Text="{TemplateBinding Title}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               VerticalAlignment="Center"/>
+                                    
+                                    <!-- Control Buttons -->
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                        <!-- Pin Button -->
+                                        <Button x:Name="PART_PinButton"
+                                                Content="📌"
+                                                ToolTip="Pin/Unpin"
+                                                Width="20" Height="20"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="0"
+                                                Margin="2,0"/>
+                                        
+                                        <!-- Float Button -->
+                                        <Button x:Name="PART_FloatButton"
+                                                Content="🗗"
+                                                ToolTip="Float/Dock"
+                                                Width="20" Height="20"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="0"
+                                                Margin="2,0"/>
+                                        
+                                        <!-- Close Button -->
+                                        <Button x:Name="PART_CloseButton"
+                                                Content="✕"
+                                                ToolTip="Close"
+                                                Width="20" Height="20"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="0"
+                                                Margin="2,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            
+                            <!-- Content -->
+                            <ContentPresenter Grid.Row="1" 
+                                              Margin="4"/>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
