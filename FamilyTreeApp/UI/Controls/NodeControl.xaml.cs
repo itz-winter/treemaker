@@ -25,8 +25,10 @@ namespace FamilyTreeApp.UI.Controls
         private Size _startSize;
         private Point _startPosition;
         
-        // For tracking which circle is hovered
+        // For tracking which circle is hovered (reserved for future proximity highlight)
+        #pragma warning disable CS0414
         private string _hoveredCircle = "";
+        #pragma warning restore CS0414
         
         // Static state shared across all nodes for connection mode
         public static bool IsInConnectionMode { get; set; } = false;
@@ -276,33 +278,39 @@ namespace FamilyTreeApp.UI.Controls
             RightAddButton.Visibility = Visibility.Visible;
         }
 
-        private void HideAddButtons()
+        /// <summary>Force-hides all add (+) buttons. Called externally when a drag or other operation starts.</summary>
+        public void HideAddButtons()
         {
-            TopAddButton.Visibility = Visibility.Collapsed;
+            TopAddButton.Visibility    = Visibility.Collapsed;
             BottomAddButton.Visibility = Visibility.Collapsed;
-            LeftAddButton.Visibility = Visibility.Collapsed;
-            RightAddButton.Visibility = Visibility.Collapsed;
+            LeftAddButton.Visibility   = Visibility.Collapsed;
+            RightAddButton.Visibility  = Visibility.Collapsed;
         }
 
         /// <summary>
-        /// Gets the canvas position of a specific connection circle
+        /// Gets the canvas position of a specific connection circle.
+        /// Uses the control's actual rendered size so resized nodes are handled correctly.
         /// </summary>
         public Point GetCirclePosition(string direction)
         {
             if (Node == null) return new Point(0, 0);
-            
-            const double nodeWidth = 120;
-            const double nodeHeight = 60;
+
+            // Prefer actual rendered size; fall back to model-stored size then defaults
+            double nodeWidth  = (ActualWidth  > 0 && !double.IsNaN(ActualWidth))  ? ActualWidth  :
+                                (Node.Width   > 0 && !double.IsNaN(Node.Width))   ? Node.Width   : 120;
+            double nodeHeight = (ActualHeight > 0 && !double.IsNaN(ActualHeight)) ? ActualHeight :
+                                (Node.Height  > 0 && !double.IsNaN(Node.Height))  ? Node.Height  : 60;
+
             double x = Node.Position.X;
             double y = Node.Position.Y;
 
             return direction switch
             {
-                "top" => new Point(x + nodeWidth / 2, y),
-                "bottom" => new Point(x + nodeWidth / 2, y + nodeHeight),
-                "left" => new Point(x, y + nodeHeight / 2),
-                "right" => new Point(x + nodeWidth, y + nodeHeight / 2),
-                _ => new Point(x + nodeWidth / 2, y + nodeHeight / 2)
+                "top"    => new Point(x + nodeWidth / 2.0, y),
+                "bottom" => new Point(x + nodeWidth / 2.0, y + nodeHeight),
+                "left"   => new Point(x,                   y + nodeHeight / 2.0),
+                "right"  => new Point(x + nodeWidth,        y + nodeHeight / 2.0),
+                _        => new Point(x + nodeWidth / 2.0, y + nodeHeight / 2.0)
             };
         }
 
@@ -320,18 +328,16 @@ namespace FamilyTreeApp.UI.Controls
 
         private void UserControl_MouseLeave(object sender, MouseEventArgs e)
         {
-            // Check if mouse is still within the expanded bounds (including buttons)
+            // The extended rect accounts for the +25 px buttons that sit outside the node border
             var pos = e.GetPosition(this);
             var bounds = new Rect(-30, -30, ActualWidth + 60, ActualHeight + 60);
-            
+
             if (!bounds.Contains(pos))
             {
                 _isMouseOver = false;
                 HideAddButtons();
                 if (!IsInConnectionMode)
-                {
                     HideAllCircles();
-                }
                 NodeBorder.Background = (SolidColorBrush)FindResource("NodeBackgroundBrush");
             }
         }

@@ -50,7 +50,9 @@ namespace FamilyTreeApp.UI.Controls
         private Point _dragStartPoint;
         private Node? _snappedTargetNode;
         private string _snappedCircleDirection = "";
+        #pragma warning disable CS0414
         private ConnectionType _pendingConnectionType = ConnectionType.Biological;
+        #pragma warning restore CS0414
 
         public event EventHandler<double>? ZoomChanged;
         public event EventHandler<Node>? NodeSelectionChanged;
@@ -71,6 +73,7 @@ namespace FamilyTreeApp.UI.Controls
             {
                 _showGrid = value;
                 GridBackground.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+                if (value) UpdateGridTransform();
             }
         }
 
@@ -1525,7 +1528,11 @@ namespace FamilyTreeApp.UI.Controls
             _dragDirection = e.ConnectionDirection;
             _snappedTargetNode = null;
             _snappedCircleDirection = "";
-            
+
+            // Hide all add buttons on every node to prevent them lingering
+            foreach (var nc in _nodeControls.Values)
+                nc.HideAddButtons();
+
             // Set connection mode on all nodes
             NodeControl.IsInConnectionMode = true;
             NodeControl.ConnectionSourceNodeId = e.SourceNode.Id;
@@ -1577,21 +1584,33 @@ namespace FamilyTreeApp.UI.Controls
         {
             double x = node.Position.X;
             double y = node.Position.Y;
-            const double nodeWidth = 120;
-            const double nodeHeight = 60;
+
+            // Use actual rendered size when available so resized nodes are handled correctly
+            double nodeWidth  = 120;
+            double nodeHeight = 60;
+            if (_nodeControls.TryGetValue(node.Id, out var ctrl))
+            {
+                if (ctrl.ActualWidth  > 0) nodeWidth  = ctrl.ActualWidth;
+                if (ctrl.ActualHeight > 0) nodeHeight = ctrl.ActualHeight;
+            }
+            else if (node.Width > 0 && !double.IsNaN(node.Width))
+            {
+                nodeWidth  = node.Width;
+                nodeHeight = (node.Height > 0 && !double.IsNaN(node.Height)) ? node.Height : 60;
+            }
 
             return direction switch
             {
-                "parent" => new Point(x + nodeWidth / 2, y),               // Top center
-                "child" => new Point(x + nodeWidth / 2, y + nodeHeight),   // Bottom center
-                "top" => new Point(x + nodeWidth / 2, y),                  // Top center
-                "bottom" => new Point(x + nodeWidth / 2, y + nodeHeight),  // Bottom center
-                "partner" => new Point(x + nodeWidth, y + nodeHeight / 2), // Right center (default partner)
-                "partner-left" => new Point(x, y + nodeHeight / 2),        // Left center
-                "partner-right" => new Point(x + nodeWidth, y + nodeHeight / 2), // Right center
-                "left" => new Point(x, y + nodeHeight / 2),                // Left center
-                "right" => new Point(x + nodeWidth, y + nodeHeight / 2),   // Right center
-                _ => new Point(x + nodeWidth / 2, y + nodeHeight / 2)      // Center
+                "parent"       => new Point(x + nodeWidth / 2.0, y),
+                "child"        => new Point(x + nodeWidth / 2.0, y + nodeHeight),
+                "top"          => new Point(x + nodeWidth / 2.0, y),
+                "bottom"       => new Point(x + nodeWidth / 2.0, y + nodeHeight),
+                "partner"      => new Point(x + nodeWidth,        y + nodeHeight / 2.0),
+                "partner-left" => new Point(x,                    y + nodeHeight / 2.0),
+                "partner-right"=> new Point(x + nodeWidth,        y + nodeHeight / 2.0),
+                "left"         => new Point(x,                    y + nodeHeight / 2.0),
+                "right"        => new Point(x + nodeWidth,        y + nodeHeight / 2.0),
+                _              => new Point(x + nodeWidth / 2.0, y + nodeHeight / 2.0)
             };
         }
 
@@ -1733,6 +1752,10 @@ namespace FamilyTreeApp.UI.Controls
             NodeControl.ConnectionSourceNodeId = null;
             NodeControl.IsConnectedToSource = null;
             UpdateAllNodesConnectionMode();
+
+            // Ensure all add buttons are hidden (they can linger if the drag ends outside a node)
+            foreach (var nc in _nodeControls.Values)
+                nc.HideAddButtons();
             
             // Remove event handlers
             TreeCanvasElement.MouseMove -= OnConnectionDrag;
@@ -1858,6 +1881,25 @@ namespace FamilyTreeApp.UI.Controls
 
         #region Pan and Zoom
 
+        /// <summary>
+        /// Updates the grid brush viewport so the grid pattern moves with the canvas (sticks to the tree).
+        /// Must be called after any change to TranslateTransform or ScaleTransform.
+        /// </summary>
+        private void UpdateGridTransform()
+        {
+            if (!_showGrid) return;
+            if (GridBackground.Fill is DrawingBrush brush)
+            {
+                double cellSize = _gridSize * _currentZoom;
+                double offsetX = TranslateTransform.X % cellSize;
+                double offsetY = TranslateTransform.Y % cellSize;
+                // Ensure positive offset for modulo of negative numbers
+                if (offsetX < 0) offsetX += cellSize;
+                if (offsetY < 0) offsetY += cellSize;
+                brush.Viewport = new Rect(offsetX, offsetY, cellSize, cellSize);
+            }
+        }
+
         private void Canvas_MouseWheel(object sender, MouseWheelEventArgs e)
         {
             var mousePos = e.GetPosition(TreeCanvasElement);
@@ -1877,6 +1919,7 @@ namespace FamilyTreeApp.UI.Controls
                 ScaleTransform.ScaleY = _currentZoom;
 
                 ZoomChanged?.Invoke(this, _currentZoom);
+                UpdateGridTransform();
             }
 
             e.Handled = true;
@@ -1918,6 +1961,7 @@ namespace FamilyTreeApp.UI.Controls
 
                 TranslateTransform.X = _panStartOffset.X + delta.X;
                 TranslateTransform.Y = _panStartOffset.Y + delta.Y;
+                UpdateGridTransform();
                 return;
             }
 
@@ -1988,6 +2032,7 @@ namespace FamilyTreeApp.UI.Controls
             ScaleTransform.ScaleX = _currentZoom;
             ScaleTransform.ScaleY = _currentZoom;
             ZoomChanged?.Invoke(this, _currentZoom);
+            UpdateGridTransform();
         }
 
         public void ResetView()
@@ -1998,6 +2043,7 @@ namespace FamilyTreeApp.UI.Controls
             TranslateTransform.X = 0;
             TranslateTransform.Y = 0;
             ZoomChanged?.Invoke(this, _currentZoom);
+            UpdateGridTransform();
         }
 
         #endregion

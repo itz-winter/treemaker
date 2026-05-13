@@ -397,19 +397,17 @@ public partial class MainWindow : Window
 
     private void SnapToGrid_Click(object sender, RoutedEventArgs e)
     {
-        SnapToGridMenuItem.IsChecked = !SnapToGridMenuItem.IsChecked;
+        // IsChecked is already toggled by WPF for checkable MenuItems
         MainCanvas.SetSnapToGrid(SnapToGridMenuItem.IsChecked);
     }
 
     private void SnapToAngle_Click(object sender, RoutedEventArgs e)
     {
-        SnapToAngleMenuItem.IsChecked = !SnapToAngleMenuItem.IsChecked;
         MainCanvas.SetSnapToAngle(SnapToAngleMenuItem.IsChecked);
     }
 
     private void SnapToGeometry_Click(object sender, RoutedEventArgs e)
     {
-        SnapToGeometryMenuItem.IsChecked = !SnapToGeometryMenuItem.IsChecked;
         MainCanvas.SetSnapToGeometry(SnapToGeometryMenuItem.IsChecked);
     }
 
@@ -651,37 +649,48 @@ public partial class MainWindow : Window
 
     private void UpdateToolPanelOrientation(UI.Controls.DockPosition position)
     {
-        // Find the StackPanel inside the ScrollViewer
-        if (ToolsPanel.Content is ScrollViewer scrollViewer &&
-            scrollViewer.Content is StackPanel stackPanel)
+        bool isHorizontal = position == UI.Controls.DockPosition.Top ||
+                            position == UI.Controls.DockPosition.Bottom;
+
+        // Find the named controls inside the DockablePanel
+        var scroller = ToolsPanel.Content as ScrollViewer;
+        if (scroller == null) return;
+
+        var stack = scroller.Content as StackPanel;
+        if (stack == null) return;
+
+        if (isHorizontal)
         {
-            bool isHorizontal = position == UI.Controls.DockPosition.Top || 
-                               position == UI.Controls.DockPosition.Bottom;
+            // Horizontal dock: rotate the panel layout
+            stack.Orientation = Orientation.Horizontal;
+            scroller.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
+            scroller.VerticalScrollBarVisibility   = ScrollBarVisibility.Disabled;
 
-            // Update the main StackPanel orientation
-            stackPanel.Orientation = isHorizontal ? Orientation.Horizontal : Orientation.Vertical;
-            
-            // Update ScrollViewer scroll bars
-            scrollViewer.HorizontalScrollBarVisibility = isHorizontal ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
-            scrollViewer.VerticalScrollBarVisibility = isHorizontal ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+            // Panel height should auto-adjust to its content – clear any fixed height
+            ToolsPanel.Height    = double.NaN;
+            ToolsPanel.MinHeight = 0;
+            ToolsPanel.Width     = double.NaN;
+            ToolsPanel.MinWidth  = 0;
 
-            // Update ListBox panel template for horizontal layout
-            if (isHorizontal)
-            {
-                ToolsListBox.ItemsPanel = new ItemsPanelTemplate(new FrameworkElementFactory(typeof(StackPanel))
-                {
-                    Name = "HorizontalPanel"
-                });
-                var factory = new FrameworkElementFactory(typeof(StackPanel));
-                factory.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
-                ToolsListBox.ItemsPanel = new ItemsPanelTemplate(factory);
-            }
-            else
-            {
-                var factory = new FrameworkElementFactory(typeof(StackPanel));
-                factory.SetValue(StackPanel.OrientationProperty, Orientation.Vertical);
-                ToolsListBox.ItemsPanel = new ItemsPanelTemplate(factory);
-            }
+            // ListBox: items flow horizontally
+            var factory = new FrameworkElementFactory(typeof(WrapPanel));
+            factory.SetValue(WrapPanel.OrientationProperty, Orientation.Horizontal);
+            ToolsListBox.ItemsPanel = new ItemsPanelTemplate(factory);
+        }
+        else
+        {
+            // Vertical dock (left/right): standard vertical layout
+            stack.Orientation = Orientation.Vertical;
+            scroller.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+            scroller.VerticalScrollBarVisibility   = ScrollBarVisibility.Auto;
+
+            ToolsPanel.Width    = 175;
+            ToolsPanel.MinWidth = 120;
+            ToolsPanel.Height   = double.NaN;
+
+            var factory = new FrameworkElementFactory(typeof(StackPanel));
+            factory.SetValue(StackPanel.OrientationProperty, Orientation.Vertical);
+            ToolsListBox.ItemsPanel = new ItemsPanelTemplate(factory);
         }
     }
 

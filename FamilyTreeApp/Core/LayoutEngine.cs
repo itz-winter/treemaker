@@ -53,229 +53,252 @@ namespace FamilyTreeApp.Core
 
         /// <summary>
         /// Lays out the family tree with proper parent-child-partner positioning.
+        /// Uses a two-pass approach inspired by Sugiyama:
+        ///   Pass 1 – place each generation, ordering nodes by parents' positions to minimise crossings.
+        ///   Pass 2 – centre children under/beside their parents (repeated until stable).
         /// </summary>
         private void LayoutFamilyTree(FamilyTree tree, Dictionary<string, int> generations)
         {
-            // Group nodes by generation
-            var genGroups = generations
-                .GroupBy(kvp => kvp.Value)
-                .OrderBy(g => g.Key)
-                .ToDictionary(g => g.Key, g => g.Select(kvp => tree.Nodes.FirstOrDefault(n => n.Id == kvp.Key)).Where(n => n != null).ToList());
+            bool isTopDown = Alignment == AlignmentMode.TopDown;
 
-            // Find partner pairs
-            var partnerPairs = new Dictionary<string, string>(); // nodeId -> partnerId
-            foreach (var conn in tree.Connections.Where(c => 
-                c.ConnectionType == ConnectionType.Partner || c.ConnectionType == ConnectionType.FormerPartner))
+            // ── Build lookup maps ──────────────────────────────────────────────────────
+            // partnerOf[id] = id of partner
+            var partnerOf = new Dictionary<string, string>();
+            foreach (var c in tree.Connections.Where(c =>
+                c.ConnectionType == ConnectionType.Partner ||
+                c.ConnectionType == ConnectionType.FormerPartner))
             {
-                partnerPairs[conn.FromNodeId] = conn.ToNodeId;
-                partnerPairs[conn.ToNodeId] = conn.FromNodeId;
+                partnerOf[c.FromNodeId] = c.ToNodeId;
+                partnerOf[c.ToNodeId] = c.FromNodeId;
             }
 
-            // Track which nodes have been positioned
-            var positioned = new HashSet<string>();
-            
-            // Position each generation
-            foreach (var genKvp in genGroups.OrderBy(g => g.Key))
-            {
-                int gen = genKvp.Key;
-                var nodesInGen = genKvp.Value;
-                
-                // Calculate Y position for this generation
-                double genY = Alignment == AlignmentMode.TopDown 
-                    ? 100 + gen * GenerationSpacing 
-                    : 100;
-                double genX = Alignment == AlignmentMode.TopDown 
-                    ? 100 
-                    : 100 + gen * GenerationSpacing;
-
-                // Group nodes: partner pairs together, singles alone
-                var groups = new List<List<Node>>();
-                var processed = new HashSet<string>();
-
-                foreach (var node in nodesInGen)
-                {
-                    if (node == null || processed.Contains(node.Id)) continue;
-                    
-                    var group = new List<Node> { node };
-                    processed.Add(node.Id);
-                    
-                    // Check if this node has a partner in the same generation
-                    if (partnerPairs.TryGetValue(node.Id, out var partnerId))
-                    {
-                        var partner = nodesInGen.FirstOrDefault(n => n?.Id == partnerId);
-                        if (partner != null && !processed.Contains(partner.Id))
-                        {
-                            group.Add(partner);
-                            processed.Add(partner.Id);
-                        }
-                    }
-                    
-                    groups.Add(group);
-                }
-
-                // Position groups with spacing
-                double currentX = genX;
-                double currentY = genY;
-                
-                foreach (var group in groups)
-                {
-                    // Check if this group's children should influence positioning
-                    Point? childrenCenter = GetChildrenCenter(tree, group, generations, gen);
-                    
-                    if (childrenCenter.HasValue)
-                    {
-                        if (Alignment == AlignmentMode.TopDown)
-                        {
-                            // Center parents above their children (horizontally)
-                            double groupWidth = group.Count * NodeWidth + (group.Count - 1) * HorizontalSpacing;
-                            currentX = childrenCenter.Value.X - groupWidth / 2 + NodeWidth / 2;
-                        }
-                        else
-                        {
-                            // Center parents left of their children (vertically)
-                            // Partners are close together with PartnerSpacing
-                            double groupHeight = group.Count * NodeHeight + (group.Count - 1) * PartnerSpacing;
-                            currentY = childrenCenter.Value.Y - groupHeight / 2 + NodeHeight / 2;
-                        }
-                    }
-
-                    foreach (var node in group)
-                    {
-                        if (node == null) continue;
-                        
-                        if (Alignment == AlignmentMode.TopDown)
-                        {
-                            node.Position = new Point(currentX, genY);
-                            currentX += NodeWidth + HorizontalSpacing;
-                        }
-                        else
-                        {
-                            // Left-Right: partners stacked vertically at same X, close together
-                            node.Position = new Point(genX, currentY);
-                            currentY += NodeHeight + PartnerSpacing;
-                        }
-                        positioned.Add(node.Id);
-                    }
-                    
-                    // Add extra spacing between groups (different families)
-                    if (Alignment == AlignmentMode.TopDown)
-                        currentX += HorizontalSpacing;
-                    else
-                        currentY += VerticalSpacing - PartnerSpacing; // Extra spacing between family groups
-                }
-            }
-
-            // Second pass: center children relative to their parents
-            CenterChildrenRelativeToParents(tree, generations);
-        }
-
-        /// <summary>
-        /// Gets the center position of children for a group of parents.
-        /// </summary>
-        private Point? GetChildrenCenter(FamilyTree tree, List<Node> parents, Dictionary<string, int> generations, int parentGen)
-        {
-            var childIds = new HashSet<string>();
-            foreach (var parent in parents)
-            {
-                if (parent == null) continue;
-                var children = tree.Connections
-                    .Where(c => c.FromNodeId == parent.Id && 
-                           (c.ConnectionType == ConnectionType.Biological || 
-                            c.ConnectionType == ConnectionType.Adopted || 
-                            c.ConnectionType == ConnectionType.Step))
-                    .Select(c => c.ToNodeId);
-                foreach (var childId in children)
-                    childIds.Add(childId);
-            }
-
-            if (childIds.Count == 0) return null;
-
-            var childNodes = tree.Nodes.Where(n => childIds.Contains(n.Id)).ToList();
-            if (childNodes.Count == 0) return null;
-
-            double avgX = childNodes.Average(n => n.Position.X);
-            double avgY = childNodes.Average(n => n.Position.Y);
-            return new Point(avgX, avgY);
-        }
-
-        /// <summary>
-        /// Centers children relative to their parents after initial layout.
-        /// </summary>
-        private void CenterChildrenRelativeToParents(FamilyTree tree, Dictionary<string, int> generations)
-        {
-            // Group children by their parent pair
-            var parentToChildren = new Dictionary<string, List<Node>>();
-            
-            foreach (var conn in tree.Connections.Where(c => 
-                c.ConnectionType == ConnectionType.Biological || 
-                c.ConnectionType == ConnectionType.Adopted || 
+            // parentsOf[childId] = list of parent node ids
+            var parentsOf = new Dictionary<string, List<string>>();
+            // childrenOf[parentId] = list of child node ids
+            var childrenOf = new Dictionary<string, List<string>>();
+            foreach (var c in tree.Connections.Where(c =>
+                c.ConnectionType == ConnectionType.Biological ||
+                c.ConnectionType == ConnectionType.Adopted ||
                 c.ConnectionType == ConnectionType.Step))
             {
-                var parent = tree.Nodes.FirstOrDefault(n => n.Id == conn.FromNodeId);
-                var child = tree.Nodes.FirstOrDefault(n => n.Id == conn.ToNodeId);
-                if (parent == null || child == null) continue;
+                if (!parentsOf.ContainsKey(c.ToNodeId)) parentsOf[c.ToNodeId] = new List<string>();
+                parentsOf[c.ToNodeId].Add(c.FromNodeId);
 
-                // Use parent pair key
-                var partnerConn = tree.Connections.FirstOrDefault(c => 
-                    (c.FromNodeId == parent.Id || c.ToNodeId == parent.Id) &&
-                    (c.ConnectionType == ConnectionType.Partner || c.ConnectionType == ConnectionType.FormerPartner));
-                
-                string parentKey = parent.Id;
-                if (partnerConn != null)
-                {
-                    var p1 = partnerConn.FromNodeId;
-                    var p2 = partnerConn.ToNodeId;
-                    parentKey = string.Compare(p1, p2) < 0 ? $"{p1}_{p2}" : $"{p2}_{p1}";
-                }
-
-                if (!parentToChildren.ContainsKey(parentKey))
-                    parentToChildren[parentKey] = new List<Node>();
-                
-                if (!parentToChildren[parentKey].Contains(child))
-                    parentToChildren[parentKey].Add(child);
+                if (!childrenOf.ContainsKey(c.FromNodeId)) childrenOf[c.FromNodeId] = new List<string>();
+                childrenOf[c.FromNodeId].Add(c.ToNodeId);
             }
 
-            // For each parent pair, center children relative to parents
-            foreach (var kvp in parentToChildren)
+            // ── Group nodes by generation ──────────────────────────────────────────────
+            var genGroups = new SortedDictionary<int, List<Node>>();
+            foreach (var kvp in generations)
             {
-                var children = kvp.Value;
-                if (children.Count == 0) continue;
+                var node = tree.Nodes.FirstOrDefault(n => n.Id == kvp.Key);
+                if (node == null) continue;
+                if (!genGroups.ContainsKey(kvp.Value)) genGroups[kvp.Value] = new List<Node>();
+                genGroups[kvp.Value].Add(node);
+            }
 
-                // Find the parents
+            if (genGroups.Count == 0) return;
+
+            // ── Pass 1: Position generation by generation ──────────────────────────────
+            // For each generation, order nodes by their parents' average axis position
+            // (or by their position in tree.Nodes for gen 0), then group partners adjacently.
+            foreach (var kvp in genGroups)
+            {
+                int gen = kvp.Key;
+                var nodes = kvp.Value;
+
+                // Order nodes in this generation to minimise crossings
+                var orderedNodes = OrderNodesByParentAxis(nodes, parentsOf, isTopDown);
+
+                // Build adjacent partner groups: keep partners next to each other
+                var groups = BuildPartnerGroups(orderedNodes, partnerOf);
+
+                // Calculate the fixed axis for this generation
+                double fixedAxis = 100.0 + gen * GenerationSpacing;
+                double cursor = 100.0;
+
+                foreach (var group in groups)
+                {
+                    for (int i = 0; i < group.Count; i++)
+                    {
+                        var node = group[i];
+                        if (node == null) continue;
+                        bool isLastInGroup = i == group.Count - 1;
+
+                        if (isTopDown)
+                        {
+                            node.Position = new Point(cursor, fixedAxis);
+                            cursor += NodeWidth + (isLastInGroup ? HorizontalSpacing : PartnerSpacing);
+                        }
+                        else
+                        {
+                            node.Position = new Point(fixedAxis, cursor);
+                            cursor += NodeHeight + (isLastInGroup ? VerticalSpacing : PartnerSpacing);
+                        }
+                    }
+                    // Extra gap between distinct family groups
+                    if (isTopDown)
+                        cursor += HorizontalSpacing * 0.5;
+                    else
+                        cursor += VerticalSpacing * 0.5;
+                }
+            }
+
+            // ── Pass 2: Centre children under/beside parents (up to 3 iterations) ─────
+            for (int iter = 0; iter < 3; iter++)
+            {
+                CenterChildrenUnderParents(tree, genGroups, childrenOf, partnerOf, isTopDown);
+            }
+        }
+
+        /// <summary>
+        /// Orders nodes in a generation by the average axis position of their parents
+        /// so that sibling lines don't cross.  Nodes without parents come last.
+        /// </summary>
+        private List<Node> OrderNodesByParentAxis(
+            List<Node> nodes,
+            Dictionary<string, List<string>> parentsOf,
+            bool isTopDown)
+        {
+            return nodes
+                .OrderBy(n =>
+                {
+                    if (!parentsOf.TryGetValue(n.Id, out var pids) || pids.Count == 0)
+                        return double.MaxValue; // roots / partnerless nodes go at end of sort
+                    var parentNodes = pids
+                        .Select(pid => nodes.FirstOrDefault(x => x.Id == pid)
+                                       ?? new Node { Position = new Point(0, 0) })
+                        .ToList();
+                    return isTopDown
+                        ? parentNodes.Average(p => p.Position.X)
+                        : parentNodes.Average(p => p.Position.Y);
+                })
+                .ToList();
+        }
+
+        /// <summary>
+        /// Given an ordered list of nodes, groups partners adjacent to each other.
+        /// Each group is a list of 1 or 2 nodes (a person + their partner if in the same generation).
+        /// </summary>
+        private List<List<Node>> BuildPartnerGroups(List<Node> orderedNodes, Dictionary<string, string> partnerOf)
+        {
+            var groups = new List<List<Node>>();
+            var placed = new HashSet<string>();
+
+            foreach (var node in orderedNodes)
+            {
+                if (placed.Contains(node.Id)) continue;
+                placed.Add(node.Id);
+
+                var group = new List<Node> { node };
+
+                if (partnerOf.TryGetValue(node.Id, out var partnerId))
+                {
+                    // Find the partner in the same generation
+                    var partner = orderedNodes.FirstOrDefault(n => n.Id == partnerId && !placed.Contains(n.Id));
+                    if (partner != null)
+                    {
+                        placed.Add(partner.Id);
+                        group.Add(partner);
+                    }
+                }
+
+                groups.Add(group);
+            }
+
+            return groups;
+        }
+
+        /// <summary>
+        /// Centres each group of children under/beside their parents.
+        /// Iterates from the deepest generation upward so that repositioning
+        /// propagates correctly through multiple levels.
+        /// </summary>
+        private void CenterChildrenUnderParents(
+            FamilyTree tree,
+            SortedDictionary<int, List<Node>> genGroups,
+            Dictionary<string, List<string>> childrenOf,
+            Dictionary<string, string> partnerOf,
+            bool isTopDown)
+        {
+            // Build parent-pair → children mapping
+            // Key: canonical partner-pair key (or single parent id if no partner)
+            var familyChildren = new Dictionary<string, List<string>>();
+
+            foreach (var kvp in childrenOf)
+            {
+                var parentId = kvp.Key;
+                // Canonical key for this parent (+ their partner if any)
+                string familyKey = parentId;
+                if (partnerOf.TryGetValue(parentId, out var partnerId))
+                {
+                    familyKey = string.Compare(parentId, partnerId, StringComparison.Ordinal) < 0
+                        ? $"{parentId}_{partnerId}"
+                        : $"{partnerId}_{parentId}";
+                }
+
+                if (!familyChildren.ContainsKey(familyKey))
+                    familyChildren[familyKey] = new List<string>();
+
+                foreach (var childId in kvp.Value)
+                    if (!familyChildren[familyKey].Contains(childId))
+                        familyChildren[familyKey].Add(childId);
+            }
+
+            foreach (var kvp in familyChildren)
+            {
+                var childIds = kvp.Value;
+                var childNodes = childIds
+                    .Select(id => tree.Nodes.FirstOrDefault(n => n.Id == id))
+                    .Where(n => n != null).Cast<Node>()
+                    .OrderBy(n => isTopDown ? n.Position.X : n.Position.Y)
+                    .ToList();
+                if (childNodes.Count == 0) continue;
+
+                // Find parents
                 var parentIds = kvp.Key.Split('_');
-                var parents = tree.Nodes.Where(n => parentIds.Contains(n.Id)).ToList();
+                var parents = parentIds
+                    .Select(id => tree.Nodes.FirstOrDefault(n => n.Id == id))
+                    .Where(n => n != null).Cast<Node>()
+                    .ToList();
                 if (parents.Count == 0) continue;
 
-                if (Alignment == AlignmentMode.TopDown)
+                if (isTopDown)
                 {
-                    // Order children by X and center horizontally under parents
-                    children = children.OrderBy(c => c.Position.X).ToList();
-                    double parentCenterX = parents.Average(p => p.Position.X + NodeWidth / 2);
-                    double childrenWidth = children.Count * NodeWidth + (children.Count - 1) * HorizontalSpacing;
-                    double childStartX = parentCenterX - childrenWidth / 2;
+                    // Centre of parent pair
+                    double parentCentreX = parents.Average(p => p.Position.X + NodeWidth / 2.0);
 
-                    for (int i = 0; i < children.Count; i++)
+                    // Spread children evenly and centre them
+                    double totalChildWidth = childNodes.Count * NodeWidth
+                                          + (childNodes.Count - 1) * HorizontalSpacing;
+                    double startX = parentCentreX - totalChildWidth / 2.0;
+
+                    // Preserve Y (generation row) — only move X
+                    for (int i = 0; i < childNodes.Count; i++)
                     {
-                        var child = children[i];
+                        var child = childNodes[i];
                         child.Position = new Point(
-                            childStartX + i * (NodeWidth + HorizontalSpacing),
+                            startX + i * (NodeWidth + HorizontalSpacing),
                             child.Position.Y);
                     }
                 }
                 else
                 {
-                    // Order children by Y and center vertically to the right of parents
-                    children = children.OrderBy(c => c.Position.Y).ToList();
-                    double parentCenterY = parents.Average(p => p.Position.Y + NodeHeight / 2);
-                    double childrenHeight = children.Count * NodeHeight + (children.Count - 1) * VerticalSpacing;
-                    double childStartY = parentCenterY - childrenHeight / 2;
+                    // Centre of parent pair (Y axis in LeftRight mode)
+                    double parentCentreY = parents.Average(p => p.Position.Y + NodeHeight / 2.0);
 
-                    for (int i = 0; i < children.Count; i++)
+                    double totalChildHeight = childNodes.Count * NodeHeight
+                                           + (childNodes.Count - 1) * VerticalSpacing;
+                    double startY = parentCentreY - totalChildHeight / 2.0;
+
+                    // Preserve X (generation column) — only move Y
+                    for (int i = 0; i < childNodes.Count; i++)
                     {
-                        var child = children[i];
+                        var child = childNodes[i];
                         child.Position = new Point(
                             child.Position.X,
-                            childStartY + i * (NodeHeight + VerticalSpacing));
+                            startY + i * (NodeHeight + VerticalSpacing));
                     }
                 }
             }
@@ -284,13 +307,14 @@ namespace FamilyTreeApp.Core
         /// <summary>
         /// Assigns generation levels to each node.
         /// Root nodes (no parents) are generation 0.
+        /// Partners are always in the same generation (reconciled to the maximum).
         /// </summary>
         private Dictionary<string, int> AssignGenerations(FamilyTree tree)
         {
             var generations = new Dictionary<string, int>();
             var visited = new HashSet<string>();
 
-            // Find root nodes (nodes with no parents)
+            // Find root nodes: nodes that are never a "child" (ToNode) in a parent-child connection
             var childNodes = new HashSet<string>();
             foreach (var conn in tree.Connections)
             {
@@ -302,20 +326,21 @@ namespace FamilyTreeApp.Core
                 }
             }
 
+            // True roots: not a child of anyone
             var rootNodes = tree.Nodes.Where(n => !childNodes.Contains(n.Id)).ToList();
 
-            // If no clear roots, use the first node
             if (rootNodes.Count == 0 && tree.Nodes.Count > 0)
-            {
                 rootNodes.Add(tree.Nodes.First());
-            }
 
-            // BFS to assign generations
+            // BFS from roots following parent→child and partner edges
             var queue = new Queue<(Node node, int gen)>();
             foreach (var root in rootNodes)
             {
-                queue.Enqueue((root, 0));
-                generations[root.Id] = 0;
+                if (!generations.ContainsKey(root.Id))
+                {
+                    generations[root.Id] = 0;
+                    queue.Enqueue((root, 0));
+                }
             }
 
             while (queue.Count > 0)
@@ -324,48 +349,67 @@ namespace FamilyTreeApp.Core
                 if (visited.Contains(node.Id)) continue;
                 visited.Add(node.Id);
 
-                generations[node.Id] = gen;
-
-                // Find children
-                var childConnections = tree.Connections
-                    .Where(c => c.FromNodeId == node.Id &&
-                               (c.ConnectionType == ConnectionType.Biological ||
-                                c.ConnectionType == ConnectionType.Adopted ||
-                                c.ConnectionType == ConnectionType.Step));
-
-                foreach (var conn in childConnections)
+                // Propagate to children (gen + 1)
+                foreach (var conn in tree.Connections.Where(c =>
+                    c.FromNodeId == node.Id &&
+                    (c.ConnectionType == ConnectionType.Biological ||
+                     c.ConnectionType == ConnectionType.Adopted ||
+                     c.ConnectionType == ConnectionType.Step)))
                 {
-                    var childNode = tree.Nodes.FirstOrDefault(n => n.Id == conn.ToNodeId);
-                    if (childNode != null && !visited.Contains(childNode.Id))
+                    var child = tree.Nodes.FirstOrDefault(n => n.Id == conn.ToNodeId);
+                    if (child != null && !visited.Contains(child.Id))
                     {
-                        queue.Enqueue((childNode, gen + 1));
+                        // Assign max to avoid overwriting a deeper assignment
+                        int newGen = gen + 1;
+                        if (!generations.TryGetValue(child.Id, out int existing) || existing < newGen)
+                            generations[child.Id] = newGen;
+                        queue.Enqueue((child, newGen));
                     }
                 }
 
-                // Also handle partner connections (same generation)
-                var partnerConnections = tree.Connections
-                    .Where(c => (c.FromNodeId == node.Id || c.ToNodeId == node.Id) &&
-                               (c.ConnectionType == ConnectionType.Partner ||
-                                c.ConnectionType == ConnectionType.FormerPartner));
-
-                foreach (var conn in partnerConnections)
+                // Propagate to partners (same gen)
+                foreach (var conn in tree.Connections.Where(c =>
+                    (c.FromNodeId == node.Id || c.ToNodeId == node.Id) &&
+                    (c.ConnectionType == ConnectionType.Partner ||
+                     c.ConnectionType == ConnectionType.FormerPartner)))
                 {
                     var partnerId = conn.FromNodeId == node.Id ? conn.ToNodeId : conn.FromNodeId;
                     var partner = tree.Nodes.FirstOrDefault(n => n.Id == partnerId);
                     if (partner != null && !visited.Contains(partner.Id))
                     {
-                        generations[partner.Id] = gen;
+                        if (!generations.TryGetValue(partner.Id, out int existing) || existing < gen)
+                            generations[partner.Id] = gen;
                         queue.Enqueue((partner, gen));
                     }
                 }
             }
 
-            // Assign remaining unvisited nodes
+            // Catch any nodes not reached by BFS
             foreach (var node in tree.Nodes)
             {
                 if (!generations.ContainsKey(node.Id))
-                {
                     generations[node.Id] = 0;
+            }
+
+            // --- Reconciliation pass ---
+            // Partners must be at the same generation.
+            // A partner added to a child (with no parents of their own) starts at gen 0
+            // but should be elevated to match their partner's generation.
+            bool changed = true;
+            while (changed)
+            {
+                changed = false;
+                foreach (var conn in tree.Connections.Where(c =>
+                    c.ConnectionType == ConnectionType.Partner ||
+                    c.ConnectionType == ConnectionType.FormerPartner))
+                {
+                    if (generations.TryGetValue(conn.FromNodeId, out int g1) &&
+                        generations.TryGetValue(conn.ToNodeId, out int g2))
+                    {
+                        int target = Math.Max(g1, g2);
+                        if (g1 != target) { generations[conn.FromNodeId] = target; changed = true; }
+                        if (g2 != target) { generations[conn.ToNodeId] = target; changed = true; }
+                    }
                 }
             }
 

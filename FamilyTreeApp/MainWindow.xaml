@@ -130,22 +130,65 @@
                                      Title="Tools"
                                      DockPosition="Left"
                                      CanClose="False"
-                                     Width="170"
+                                     Width="175"
                                      MinWidth="120">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Margin="4">
-                        <TextBlock Text="TOOLS" 
-                                   FontWeight="Bold" 
-                                   FontSize="12"
+                <ScrollViewer x:Name="ToolsPanelScroller"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="ToolsPanelStack" Margin="4">
+
+                        <!-- ── File ──────────────────────────────────────── -->
+                        <TextBlock Text="FILE"
+                                   FontWeight="Bold" FontSize="11"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   Margin="0,0,0,10"/>
-                        
-                        <!-- Dynamic Tool Buttons with Drag-Drop -->
+                                   Margin="0,4,0,4"/>
+                        <Button Content="📄 New Tree"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="NewTree_Click" ToolTip="New (Ctrl+N)" Margin="0,1"/>
+                        <Button Content="📂 Open…"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="OpenTree_Click" ToolTip="Open (Ctrl+O)" Margin="0,1"/>
+                        <Button Content="💾 Save"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="SaveTree_Click" ToolTip="Save (Ctrl+S)" Margin="0,1"/>
+
+                        <Separator Margin="0,6"/>
+
+                        <!-- ── Edit ──────────────────────────────────────── -->
+                        <TextBlock Text="EDIT"
+                                   FontWeight="Bold" FontSize="11"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   Margin="0,4,0,4"/>
+                        <Button Content="↩ Undo"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="Undo_Click" ToolTip="Undo (Ctrl+Z)" Margin="0,1"/>
+                        <Button Content="↪ Redo"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="Redo_Click" ToolTip="Redo (Ctrl+Y)" Margin="0,1"/>
+                        <Button Content="🗑 Delete"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="DeleteSelected_Click" ToolTip="Delete selected (Del)" Margin="0,1"/>
+
+                        <Separator Margin="0,6"/>
+
+                        <!-- ── Tree / Custom tools ────────────────────────── -->
+                        <TextBlock Text="TOOLS"
+                                   FontWeight="Bold" FontSize="11"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   Margin="0,4,0,4"/>
+                        <Button Content="➕ Add Node"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="AddNode_Click" ToolTip="Add node (Space)" Margin="0,1"/>
+                        <Button Content="🔀 Auto Layout"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="AutoLayout_Click" ToolTip="Auto-arrange nodes" Margin="0,1"/>
+
+                        <!-- Dynamic customisable tool buttons -->
                         <ListBox x:Name="ToolsListBox"
-                                 ItemsSource="{Binding}"
                                  Background="Transparent"
                                  BorderThickness="0"
                                  AllowDrop="True"
+                                 Padding="0"
                                  PreviewMouseLeftButtonDown="ToolsListBox_PreviewMouseLeftButtonDown"
                                  PreviewMouseMove="ToolsListBox_PreviewMouseMove"
                                  Drop="ToolsListBox_Drop"
@@ -168,7 +211,7 @@
                             </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Content="{Binding DisplayText}" 
+                                    <Button Content="{Binding DisplayText}"
                                             Style="{DynamicResource ToolButtonStyle}"
                                             Click="DynamicTool_Click"
                                             Tag="{Binding Id}"
@@ -177,36 +220,37 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                        
-                        <Separator Margin="0,10"/>
-                        
-                        <TextBlock Text="VIEW" 
-                                   FontWeight="Bold" 
-                                   FontSize="12"
+
+                        <Separator Margin="0,6"/>
+
+                        <!-- ── View ───────────────────────────────────────── -->
+                        <TextBlock Text="VIEW"
+                                   FontWeight="Bold" FontSize="11"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   Margin="0,0,0,10"/>
-                        
-                        <Button Content="🔍+ Zoom In" 
+                                   Margin="0,4,0,4"/>
+                        <Button Content="🔍+ Zoom In"
                                 Style="{DynamicResource ToolButtonStyle}"
-                                Click="ZoomIn_Click"/>
-                        
-                        <Button Content="🔍− Zoom Out" 
+                                Click="ZoomIn_Click" ToolTip="Zoom in (Ctrl++)" Margin="0,1"/>
+                        <Button Content="🔍− Zoom Out"
                                 Style="{DynamicResource ToolButtonStyle}"
-                                Click="ZoomOut_Click"/>
-                        
-                        <StackPanel Orientation="Horizontal" Margin="0,5">
-                            <CheckBox x:Name="GridCheckBox" 
-                                      Content="Grid" 
-                                      VerticalAlignment="Center"
-                                      Click="ShowGrid_Click"/>
-                        </StackPanel>
-                        
-                        <Separator Margin="0,10"/>
-                        
-                        <Button Content="⚙ Customize..." 
+                                Click="ZoomOut_Click" ToolTip="Zoom out (Ctrl+-)" Margin="0,1"/>
+                        <Button Content="⊡ Reset View"
+                                Style="{DynamicResource ToolButtonStyle}"
+                                Click="ResetView_Click" ToolTip="Reset view (Ctrl+R)" Margin="0,1"/>
+                        <CheckBox x:Name="GridCheckBox"
+                                  Content="Show Grid"
+                                  VerticalAlignment="Center"
+                                  Margin="2,4,0,4"
+                                  Click="ShowGrid_Click" ToolTip="Toggle grid (Ctrl+G)"/>
+
+                        <Separator Margin="0,6"/>
+
+                        <!-- ── Customise ──────────────────────────────────── -->
+                        <Button Content="⚙ Customize…"
                                 Style="{DynamicResource ToolButtonStyle}"
                                 Click="CustomizeTools_Click"
-                                ToolTip="Customize toolbar"/>
+                                ToolTip="Customize toolbar"
+                                Margin="0,1"/>
                     </StackPanel>
                 </ScrollViewer>
             </controls:DockablePanel>
