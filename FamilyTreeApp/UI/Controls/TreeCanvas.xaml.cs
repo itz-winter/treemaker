@@ -86,6 +86,7 @@ namespace FamilyTreeApp.UI.Controls
         {
             _familyTree = tree;
             NodeControl.CurrentFamilyTree = tree; // Set for group assignment menus
+            NodeControl.CurrentAlignment = _layoutEngine.Alignment; // Sync button semantics
             // Sync the line style from the loaded tree
             _lineStyle = tree.LineStyle;
             // Don't auto-refresh on collection change - we handle it manually
@@ -494,19 +495,29 @@ namespace FamilyTreeApp.UI.Controls
                 }
             }
 
-            // Draw a simple line for partners
-            var path = new Path
+            // Draw a line (or S-curve) for partners
+            Path path;
+            if (_lineStyle == LineStyle.Curves)
             {
-                Stroke = GetConnectionBrush(connection.ConnectionType),
-                StrokeThickness = 2,
-                StrokeDashArray = GetConnectionDashArray(connection.ConnectionType)
-            };
-
-            var geometry = new PathGeometry();
-            var figure = new PathFigure { StartPoint = fromPoint };
-            figure.Segments.Add(new LineSegment(toPoint, true));
-            geometry.Figures.Add(figure);
-            path.Data = geometry;
+                bool verticalPartner = !isTopDown; // LR partners are stacked vertically
+                path = CreateSCurve(fromPoint, toPoint, verticalPartner,
+                    GetConnectionBrush(connection.ConnectionType),
+                    GetConnectionDashArray(connection.ConnectionType));
+            }
+            else
+            {
+                path = new Path
+                {
+                    Stroke = GetConnectionBrush(connection.ConnectionType),
+                    StrokeThickness = 2,
+                    StrokeDashArray = GetConnectionDashArray(connection.ConnectionType)
+                };
+                var geometry = new PathGeometry();
+                var figure = new PathFigure { StartPoint = fromPoint };
+                figure.Segments.Add(new LineSegment(toPoint, true));
+                geometry.Figures.Add(figure);
+                path.Data = geometry;
+            }
 
             // Add context menu
             AddConnectionContextMenu(path, connection);
@@ -615,21 +626,14 @@ namespace FamilyTreeApp.UI.Controls
             {
                 if (isLeftRight)
                 {
-                    // LeftRight: partner line is vertical (connecting bottom of top parent to top of bottom parent)
-                    // We need to find the midpoint of that partner line and extend from there
-                    Point p1, p2;
-                    if (parentNode.Position.Y < partnerControl.Node.Position.Y)
-                    {
-                        p1 = parentControl.GetCirclePosition("bottom");
-                        p2 = partnerControl.GetCirclePosition("top");
-                    }
-                    else
-                    {
-                        p1 = parentControl.GetCirclePosition("top");
-                        p2 = partnerControl.GetCirclePosition("bottom");
-                    }
-                    // Drop point is the midpoint of the vertical partner line
-                    dropPoint = new Point((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+                    // LeftRight: parents are stacked vertically at the same generation column.
+                    // Children branch to the RIGHT. Drop point is on the right edge, midway
+                    // between the two parents vertically.
+                    Point r1 = parentControl.GetCirclePosition("right");
+                    Point r2 = partnerControl.GetCirclePosition("right");
+                    double rightEdgeX = Math.Max(r1.X, r2.X);
+                    double midY       = (r1.Y + r2.Y) / 2;
+                    dropPoint = new Point(rightEdgeX, midY);
                 }
                 else
                 {
@@ -662,7 +666,36 @@ namespace FamilyTreeApp.UI.Controls
 
             if (isLeftRight)
             {
-                // LEFT-RIGHT MODE
+                if (_lineStyle == LineStyle.Curves)
+                {
+                    // CURVES + LEFT-RIGHT: fan S-curves directly from drop point to each child's left edge
+                    foreach (var child in children)
+                    {
+                        var childLeft = child.control.GetCirclePosition("left");
+                        var curve = CreateSCurve(dropPoint, childLeft, false, brush, dashArray);
+                        ConnectionsCanvas.Children.Add(curve);
+
+                        var childConnection = connections.FirstOrDefault(c =>
+                            c.FromNodeId == parentId && c.ToNodeId == child.node.Id);
+                        if (childConnection != null)
+                        {
+                            AddConnectionContextMenu(curve, childConnection);
+                            _connectionPaths[childConnection.Id] = curve;
+                        }
+                    }
+                    if (firstConnection != null && children.Count == 1)
+                    {
+                        var curve = ConnectionsCanvas.Children.OfType<Path>().LastOrDefault();
+                        if (curve != null)
+                        {
+                            AddConnectionContextMenu(curve, firstConnection);
+                            _connectionPaths[firstConnection.Id] = curve;
+                        }
+                    }
+                }
+                else
+                {
+                // LEFT-RIGHT SQUARE MODE
                 // Draw horizontal line from drop point, then vertical sibling bar, then horizontal to children
                 // Place sibling bar just 40px to the right of drop point (close to parents)
                 double siblingBarX = dropPoint.X + 40;
@@ -675,21 +708,13 @@ namespace FamilyTreeApp.UI.Controls
                 {
                     var child = children[0];
                     var childLeft = child.control.GetCirclePosition("left");
-                    
-                    Path childLine;
-                    if (_lineStyle == LineStyle.Curves)
+
+                    if (Math.Abs(dropPoint.Y - childLeft.Y) > 5)
                     {
-                        childLine = CreateCurvedLine(new Point(siblingBarX, dropPoint.Y), childLeft, brush, dashArray, isVertical: false);
+                        var vertLine = CreateLine(new Point(siblingBarX, dropPoint.Y), new Point(siblingBarX, childLeft.Y), brush, dashArray);
+                        ConnectionsCanvas.Children.Add(vertLine);
                     }
-                    else
-                    {
-                        if (Math.Abs(dropPoint.Y - childLeft.Y) > 5)
-                        {
-                            var vertLine = CreateLine(new Point(siblingBarX, dropPoint.Y), new Point(siblingBarX, childLeft.Y), brush, dashArray);
-                            ConnectionsCanvas.Children.Add(vertLine);
-                        }
-                        childLine = CreateLine(new Point(siblingBarX, childLeft.Y), childLeft, brush, dashArray);
-                    }
+                    var childLine = CreateLine(new Point(siblingBarX, childLeft.Y), childLeft, brush, dashArray);
                     ConnectionsCanvas.Children.Add(childLine);
 
                     if (firstConnection != null)
@@ -722,20 +747,10 @@ namespace FamilyTreeApp.UI.Controls
                     foreach (var child in children)
                     {
                         var childLeft = child.control.GetCirclePosition("left");
-                        
-                        Path childLine;
-                        if (_lineStyle == LineStyle.Curves)
-                        {
-                            childLine = CreateCurvedLine(new Point(siblingBarX, childLeft.Y), childLeft, brush, dashArray, isVertical: false);
-                        }
-                        else
-                        {
-                            childLine = CreateLine(new Point(siblingBarX, childLeft.Y), childLeft, brush, dashArray);
-                        }
+                        var childLine = CreateLine(new Point(siblingBarX, childLeft.Y), childLeft, brush, dashArray);
                         ConnectionsCanvas.Children.Add(childLine);
 
-                        // Find the connection for this child to add context menu
-                        var childConnection = connections.FirstOrDefault(c => 
+                        var childConnection = connections.FirstOrDefault(c =>
                             c.FromNodeId == parentId && c.ToNodeId == child.node.Id);
                         if (childConnection != null)
                         {
@@ -744,10 +759,31 @@ namespace FamilyTreeApp.UI.Controls
                         }
                     }
                 }
+                } // end square LR
             }
             else
             {
-                // TOP-DOWN MODE
+                if (_lineStyle == LineStyle.Curves)
+                {
+                    // CURVES + TOP-DOWN: fan S-curves directly from drop point to each child's top edge
+                    foreach (var child in children)
+                    {
+                        var childTop = child.control.GetCirclePosition("top");
+                        var curve = CreateSCurve(dropPoint, childTop, true, brush, dashArray);
+                        ConnectionsCanvas.Children.Add(curve);
+
+                        var childConnection = connections.FirstOrDefault(c =>
+                            c.FromNodeId == parentId && c.ToNodeId == child.node.Id);
+                        if (childConnection != null)
+                        {
+                            AddConnectionContextMenu(curve, childConnection);
+                            _connectionPaths[childConnection.Id] = curve;
+                        }
+                    }
+                }
+                else
+                {
+                // TOP-DOWN SQUARE MODE
                 // Calculate the Y level for the horizontal sibling bar
                 double minChildY = children.Min(c => c.node.Position.Y);
                 double siblingBarY = dropPoint.Y + (minChildY - dropPoint.Y) * 0.6;
@@ -758,26 +794,15 @@ namespace FamilyTreeApp.UI.Controls
 
                 if (children.Count == 1)
                 {
-                    // Single child - draw line from sibling bar level to child
                     var child = children[0];
                     var childTop = child.control.GetCirclePosition("top");
-                    
-                    Path childLine;
-                    if (_lineStyle == LineStyle.Curves)
+
+                    if (Math.Abs(dropPoint.X - childTop.X) > 5)
                     {
-                        // Curved line from drop point down to child
-                        childLine = CreateCurvedLine(new Point(dropPoint.X, siblingBarY), childTop, brush, dashArray, isVertical: true);
+                        var horizontalLine = CreateLine(new Point(dropPoint.X, siblingBarY), new Point(childTop.X, siblingBarY), brush, dashArray);
+                        ConnectionsCanvas.Children.Add(horizontalLine);
                     }
-                    else
-                    {
-                        // Square: horizontal then vertical
-                        if (Math.Abs(dropPoint.X - childTop.X) > 5)
-                        {
-                            var horizontalLine = CreateLine(new Point(dropPoint.X, siblingBarY), new Point(childTop.X, siblingBarY), brush, dashArray);
-                            ConnectionsCanvas.Children.Add(horizontalLine);
-                        }
-                        childLine = CreateLine(new Point(childTop.X, siblingBarY), childTop, brush, dashArray);
-                    }
+                    var childLine = CreateLine(new Point(childTop.X, siblingBarY), childTop, brush, dashArray);
                     ConnectionsCanvas.Children.Add(childLine);
 
                     if (firstConnection != null)
@@ -792,11 +817,9 @@ namespace FamilyTreeApp.UI.Controls
                     double leftX = children.First().control.GetCirclePosition("top").X;
                     double rightX = children.Last().control.GetCirclePosition("top").X;
 
-                    // Horizontal sibling bar
                     var siblingBar = CreateLine(new Point(leftX, siblingBarY), new Point(rightX, siblingBarY), brush, dashArray);
                     ConnectionsCanvas.Children.Add(siblingBar);
 
-                    // Connect the drop point to the sibling bar if needed
                     if (dropPoint.X < leftX)
                     {
                         var connectLine = CreateLine(new Point(dropPoint.X, siblingBarY), new Point(leftX, siblingBarY), brush, dashArray);
@@ -808,26 +831,13 @@ namespace FamilyTreeApp.UI.Controls
                         ConnectionsCanvas.Children.Add(connectLine);
                     }
 
-                    // Vertical lines from sibling bar to each child
                     foreach (var child in children)
                     {
                         var childTop = child.control.GetCirclePosition("top");
-                        
-                        Path childLine;
-                        if (_lineStyle == LineStyle.Curves)
-                        {
-                            // Curved line from sibling bar to child
-                            childLine = CreateCurvedLine(new Point(childTop.X, siblingBarY), childTop, brush, dashArray, isVertical: true);
-                        }
-                        else
-                        {
-                            // Straight vertical line
-                            childLine = CreateLine(new Point(childTop.X, siblingBarY), childTop, brush, dashArray);
-                        }
+                        var childLine = CreateLine(new Point(childTop.X, siblingBarY), childTop, brush, dashArray);
                         ConnectionsCanvas.Children.Add(childLine);
 
-                        // Find the connection for this child to add context menu
-                        var childConnection = connections.FirstOrDefault(c => 
+                        var childConnection = connections.FirstOrDefault(c =>
                             c.FromNodeId == parentId && c.ToNodeId == child.node.Id);
                         if (childConnection != null)
                         {
@@ -836,7 +846,48 @@ namespace FamilyTreeApp.UI.Controls
                         }
                     }
                 }
+                } // end square TD
             }
+        }
+
+        /// <summary>
+        /// Creates a smooth S-shaped bezier curve that always has visible curvature,
+        /// even when from and to share the same X or Y coordinate.
+        /// verticalPrimary = true → exits downward / enters from above (TopDown).
+        /// verticalPrimary = false → exits rightward / enters from the left (LeftRight).
+        /// </summary>
+        private Path CreateSCurve(Point from, Point to, bool verticalPrimary, Brush stroke, DoubleCollection? dashArray)
+        {
+            double strength = verticalPrimary
+                ? Math.Max(Math.Abs(to.Y - from.Y) * 0.45, 35)
+                : Math.Max(Math.Abs(to.X - from.X) * 0.45, 35);
+
+            Point cp1, cp2;
+            if (verticalPrimary)
+            {
+                // Exits the source going DOWN, arrives at destination coming from ABOVE
+                cp1 = new Point(from.X, from.Y + strength);
+                cp2 = new Point(to.X,   to.Y - strength);
+            }
+            else
+            {
+                // Exits the source going RIGHT, arrives at destination coming from the LEFT
+                cp1 = new Point(from.X + strength, from.Y);
+                cp2 = new Point(to.X   - strength, to.Y);
+            }
+
+            var path = new Path
+            {
+                Stroke = stroke,
+                StrokeThickness = 2,
+                StrokeDashArray = dashArray
+            };
+            var geometry = new PathGeometry();
+            var figure = new PathFigure { StartPoint = from };
+            figure.Segments.Add(new BezierSegment(cp1, cp2, to, true));
+            geometry.Figures.Add(figure);
+            path.Data = geometry;
+            return path;
         }
 
         /// <summary>
@@ -854,45 +905,6 @@ namespace FamilyTreeApp.UI.Controls
             var geometry = new PathGeometry();
             var figure = new PathFigure { StartPoint = from };
             figure.Segments.Add(new LineSegment(to, true));
-            geometry.Figures.Add(figure);
-            path.Data = geometry;
-
-            return path;
-        }
-
-        /// <summary>
-        /// Creates a curved bezier line (for curves style)
-        /// </summary>
-        private Path CreateCurvedLine(Point from, Point to, Brush stroke, DoubleCollection? dashArray, bool isVertical = true)
-        {
-            var path = new Path
-            {
-                Stroke = stroke,
-                StrokeThickness = 2,
-                StrokeDashArray = dashArray
-            };
-
-            var geometry = new PathGeometry();
-            var figure = new PathFigure { StartPoint = from };
-
-            // Create control points for a smooth bezier curve
-            Point cp1, cp2;
-            if (isVertical)
-            {
-                // Vertical curve - control points extend vertically
-                double midY = (from.Y + to.Y) / 2;
-                cp1 = new Point(from.X, midY);
-                cp2 = new Point(to.X, midY);
-            }
-            else
-            {
-                // Horizontal curve - control points extend horizontally
-                double midX = (from.X + to.X) / 2;
-                cp1 = new Point(midX, from.Y);
-                cp2 = new Point(midX, to.Y);
-            }
-
-            figure.Segments.Add(new BezierSegment(cp1, cp2, to, true));
             geometry.Figures.Add(figure);
             path.Data = geometry;
 
@@ -2091,6 +2103,7 @@ namespace FamilyTreeApp.UI.Controls
             set
             {
                 _layoutEngine.Alignment = value;
+                NodeControl.CurrentAlignment = value;
                 AlignmentChanged?.Invoke(this, value);
             }
         }
@@ -2148,11 +2161,8 @@ namespace FamilyTreeApp.UI.Controls
         /// </summary>
         public void SetLineStyle(LineStyle style)
         {
-            if (_lineStyle != style)
-            {
-                _lineStyle = style;
-                RefreshConnections();
-            }
+            _lineStyle = style;
+            RefreshConnections();
         }
 
         /// <summary>

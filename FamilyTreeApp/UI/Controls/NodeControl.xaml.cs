@@ -38,6 +38,9 @@ namespace FamilyTreeApp.UI.Controls
         // Static reference to the family tree for groups access
         public static FamilyTree? CurrentFamilyTree { get; set; } = null;
 
+        // Alignment mode — set by TreeCanvas when layout changes
+        public static LayoutEngine.AlignmentMode CurrentAlignment { get; set; } = LayoutEngine.AlignmentMode.TopDown;
+
         public static readonly DependencyProperty NodeProperty =
             DependencyProperty.Register("Node", typeof(Node), typeof(NodeControl),
                 new PropertyMetadata(null, OnNodeChanged));
@@ -320,6 +323,13 @@ namespace FamilyTreeApp.UI.Controls
         {
             _isMouseOver = true;
             
+            // Update tooltips to reflect current alignment mode
+            bool isLR = CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight;
+            TopAddButton.ToolTip    = isLR ? "Add Partner" : "Add Parent";
+            BottomAddButton.ToolTip = isLR ? "Add Partner" : "Add Child";
+            LeftAddButton.ToolTip   = isLR ? "Add Parent"  : "Add Partner";
+            RightAddButton.ToolTip  = isLR ? "Add Child"   : "Add Partner";
+
             // Show add buttons only if SHIFT is held
             UpdateAddButtonsVisibility();
             
@@ -477,28 +487,44 @@ namespace FamilyTreeApp.UI.Controls
 
         private void AddParentButton_Click(object sender, RoutedEventArgs e)
         {
-            if (Node != null && !_isDraggingConnection)
+            if (Node == null || _isDraggingConnection) { e.Handled = true; return; }
+            // TopDown: Top=parent | LeftRight: Top=partner
+            if (CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight)
+                AddPartnerRequested?.Invoke(this, new NodeActionEventArgs(Node));
+            else
                 AddParentRequested?.Invoke(this, new NodeActionEventArgs(Node));
             e.Handled = true;
         }
 
         private void AddChildButton_Click(object sender, RoutedEventArgs e)
         {
-            if (Node != null && !_isDraggingConnection)
+            if (Node == null || _isDraggingConnection) { e.Handled = true; return; }
+            // TopDown: Bottom=child | LeftRight: Bottom=partner
+            if (CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight)
+                AddPartnerRequested?.Invoke(this, new NodeActionEventArgs(Node));
+            else
                 AddChildRequested?.Invoke(this, new NodeActionEventArgs(Node));
             e.Handled = true;
         }
 
         private void AddPartnerLeftButton_Click(object sender, RoutedEventArgs e)
         {
-            if (Node != null && !_isDraggingConnection)
+            if (Node == null || _isDraggingConnection) { e.Handled = true; return; }
+            // TopDown: Left=partner | LeftRight: Left=parent
+            if (CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight)
+                AddParentRequested?.Invoke(this, new NodeActionEventArgs(Node));
+            else
                 AddPartnerRequested?.Invoke(this, new NodeActionEventArgs(Node));
             e.Handled = true;
         }
 
         private void AddPartnerRightButton_Click(object sender, RoutedEventArgs e)
         {
-            if (Node != null && !_isDraggingConnection)
+            if (Node == null || _isDraggingConnection) { e.Handled = true; return; }
+            // TopDown: Right=partner | LeftRight: Right=child
+            if (CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight)
+                AddChildRequested?.Invoke(this, new NodeActionEventArgs(Node));
+            else
                 AddPartnerRequested?.Invoke(this, new NodeActionEventArgs(Node));
             e.Handled = true;
         }
@@ -511,22 +537,26 @@ namespace FamilyTreeApp.UI.Controls
 
         private void TopAddButton_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            StartConnectionDrag("parent", e);
+            // TopDown: parent | LeftRight: partner
+            StartConnectionDrag(CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight ? "partner" : "parent", e);
         }
 
         private void BottomAddButton_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            StartConnectionDrag("child", e);
+            // TopDown: child | LeftRight: partner
+            StartConnectionDrag(CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight ? "partner" : "child", e);
         }
 
         private void LeftAddButton_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            StartConnectionDrag("partner", e);
+            // TopDown: partner | LeftRight: parent
+            StartConnectionDrag(CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight ? "parent" : "partner", e);
         }
 
         private void RightAddButton_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            StartConnectionDrag("partner", e);
+            // TopDown: partner | LeftRight: child
+            StartConnectionDrag(CurrentAlignment == LayoutEngine.AlignmentMode.LeftRight ? "child" : "partner", e);
         }
 
         private void StartConnectionDrag(string direction, MouseButtonEventArgs e)

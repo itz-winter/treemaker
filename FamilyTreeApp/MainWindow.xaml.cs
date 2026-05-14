@@ -365,33 +365,33 @@ public partial class MainWindow : Window
 
     private void LineStyleCurves_Click(object sender, RoutedEventArgs e)
     {
-        _familyTree.LineStyle = LineStyle.Curves;
         CurvesStyleMenuItem.IsChecked = true;
         SquareStyleMenuItem.IsChecked = false;
+        if (_familyTree != null) _familyTree.LineStyle = LineStyle.Curves;
         MainCanvas.SetLineStyle(LineStyle.Curves);
     }
 
     private void LineStyleSquare_Click(object sender, RoutedEventArgs e)
     {
-        _familyTree.LineStyle = LineStyle.Square;
         CurvesStyleMenuItem.IsChecked = false;
         SquareStyleMenuItem.IsChecked = true;
+        if (_familyTree != null) _familyTree.LineStyle = LineStyle.Square;
         MainCanvas.SetLineStyle(LineStyle.Square);
     }
 
     private void LayoutModeFixed_Click(object sender, RoutedEventArgs e)
     {
-        _familyTree.LayoutMode = LayoutMode.Fixed;
         FixedLayoutMenuItem.IsChecked = true;
         FreeLayoutMenuItem.IsChecked = false;
+        if (_familyTree != null) _familyTree.LayoutMode = LayoutMode.Fixed;
         MainCanvas.SetLayoutMode(LayoutMode.Fixed);
     }
 
     private void LayoutModeFree_Click(object sender, RoutedEventArgs e)
     {
-        _familyTree.LayoutMode = LayoutMode.Free;
         FixedLayoutMenuItem.IsChecked = false;
         FreeLayoutMenuItem.IsChecked = true;
+        if (_familyTree != null) _familyTree.LayoutMode = LayoutMode.Free;
         MainCanvas.SetLayoutMode(LayoutMode.Free);
     }
 

@@ -1,42 +1,64 @@
 @echo off
-REM Build script for Family Tree Builder MSI Installer
+REM Build script for Family Tree Builder
+REM Builds: Debug exe, Release exe (published), and MSI installer
 REM Run this from the solution root directory
 
 echo ========================================
-echo Family Tree Builder - Build Installer
+echo  Family Tree Builder - Full Build
 echo ========================================
 echo.
 
-REM Step 1: Build and Publish the application
-echo [1/3] Publishing application...
-cd FamilyTreeApp
-dotnet publish -c Release -r win-x64 --self-contained true -o "..\publish"
+REM Step 1: Restore NuGet packages
+echo [1/4] Restoring packages...
+dotnet restore "family tree maker.sln"
 if %ERRORLEVEL% NEQ 0 (
-    echo ERROR: Failed to publish application
+    echo ERROR: Package restore failed
     exit /b 1
 )
-cd ..
 echo.
 
-REM Step 2: Build the MSI installer
-echo [2/3] Building MSI installer...
+REM Step 2: Build Debug configuration (for development/testing)
+echo [2/4] Building Debug configuration...
+dotnet build "family tree maker.sln" -c Debug --no-restore
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Debug build failed
+    exit /b 1
+)
+echo.
+
+REM Step 3: Publish Release (self-contained win-x64 exe + all dependencies)
+echo [3/4] Publishing Release (self-contained)...
+dotnet publish FamilyTreeApp\FamilyTreeApp.csproj -c Release -r win-x64 --self-contained true -o "publish" --no-restore
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Publish failed
+    exit /b 1
+)
+echo.
+
+REM Step 4: Build MSI installer
+echo [4/4] Building MSI installer...
 cd Installer
-REM Include the Util extension to provide WixShellExec / util custom actions
 wix build Package.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -o FamilyTreeBuilder.msi
 if %ERRORLEVEL% NEQ 0 (
-    echo ERROR: Failed to build MSI installer
+    echo ERROR: MSI build failed
+    cd ..
     exit /b 1
 )
 cd ..
 echo.
 
-REM Step 3: Show result
-echo [3/3] Build complete!
-echo.
 echo ========================================
-echo Installer created at:
-echo   Installer\FamilyTreeBuilder.msi
+echo  Build complete!
 echo ========================================
 echo.
-
+echo  Debug exe:
+echo    FamilyTreeApp\bin\Debug\net9.0-windows\FamilyTreeApp.exe
+echo.
+echo  Release (published):
+echo    publish\FamilyTreeBuilder.exe
+echo.
+echo  Installer:
+echo    Installer\FamilyTreeBuilder.msi
+echo.
 dir /b Installer\*.msi
+echo.
