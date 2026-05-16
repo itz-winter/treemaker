@@ -668,11 +668,18 @@ namespace FamilyTreeApp.UI.Controls
             {
                 if (_lineStyle == LineStyle.Curves)
                 {
-                    // CURVES + LEFT-RIGHT: fan S-curves directly from drop point to each child's left edge
+                    // CURVES + LEFT-RIGHT: shared horizontal stem, then individual S-curves to each child
+                    // Stem runs 40% of the way from drop point toward the children's column
+                    double childColX = children.Average(c => c.control.GetCirclePosition("left").X);
+                    double stemEndX = dropPoint.X + (childColX - dropPoint.X) * 0.4;
+                    var stem = CreateLine(dropPoint, new Point(stemEndX, dropPoint.Y), brush, dashArray);
+                    ConnectionsCanvas.Children.Add(stem);
+
+                    var stemTip = new Point(stemEndX, dropPoint.Y);
                     foreach (var child in children)
                     {
                         var childLeft = child.control.GetCirclePosition("left");
-                        var curve = CreateSCurve(dropPoint, childLeft, false, brush, dashArray);
+                        var curve = CreateSCurve(stemTip, childLeft, false, brush, dashArray);
                         ConnectionsCanvas.Children.Add(curve);
 
                         var childConnection = connections.FirstOrDefault(c =>
@@ -681,15 +688,6 @@ namespace FamilyTreeApp.UI.Controls
                         {
                             AddConnectionContextMenu(curve, childConnection);
                             _connectionPaths[childConnection.Id] = curve;
-                        }
-                    }
-                    if (firstConnection != null && children.Count == 1)
-                    {
-                        var curve = ConnectionsCanvas.Children.OfType<Path>().LastOrDefault();
-                        if (curve != null)
-                        {
-                            AddConnectionContextMenu(curve, firstConnection);
-                            _connectionPaths[firstConnection.Id] = curve;
                         }
                     }
                 }
@@ -765,11 +763,18 @@ namespace FamilyTreeApp.UI.Controls
             {
                 if (_lineStyle == LineStyle.Curves)
                 {
-                    // CURVES + TOP-DOWN: fan S-curves directly from drop point to each child's top edge
+                    // CURVES + TOP-DOWN: shared vertical stem, then individual S-curves to each child
+                    // Stem runs 40% of the way from drop point toward the children's row
+                    double childRowY = children.Average(c => c.control.GetCirclePosition("top").Y);
+                    double stemEndY = dropPoint.Y + (childRowY - dropPoint.Y) * 0.4;
+                    var stem = CreateLine(dropPoint, new Point(dropPoint.X, stemEndY), brush, dashArray);
+                    ConnectionsCanvas.Children.Add(stem);
+
+                    var stemTip = new Point(dropPoint.X, stemEndY);
                     foreach (var child in children)
                     {
                         var childTop = child.control.GetCirclePosition("top");
-                        var curve = CreateSCurve(dropPoint, childTop, true, brush, dashArray);
+                        var curve = CreateSCurve(stemTip, childTop, true, brush, dashArray);
                         ConnectionsCanvas.Children.Add(curve);
 
                         var childConnection = connections.FirstOrDefault(c =>

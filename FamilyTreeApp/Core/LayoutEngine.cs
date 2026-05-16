@@ -274,6 +274,36 @@ namespace FamilyTreeApp.Core
                                           + (childNodes.Count - 1) * HorizontalSpacing;
                     double startX = parentCentreX - totalChildWidth / 2.0;
 
+                    // Move children with external partners to the outermost positions
+                    // so their partner line doesn't cross siblings.
+                    var siblingIds = new HashSet<string>(childNodes.Select(n => n.Id));
+                    var childrenWithExternalPartner = childNodes
+                        .Where(n => partnerOf.TryGetValue(n.Id, out var pid) && !siblingIds.Contains(pid))
+                        .ToList();
+
+                    if (childrenWithExternalPartner.Any())
+                    {
+                        // Remove them, then re-insert at edges
+                        foreach (var cwp in childrenWithExternalPartner)
+                            childNodes.Remove(cwp);
+
+                        // Place children whose partner is to the right at the right end, others at left
+                        var toRight = childrenWithExternalPartner
+                            .Where(n => partnerOf.TryGetValue(n.Id, out var pid) &&
+                                        tree.Nodes.FirstOrDefault(x => x.Id == pid) is Node pn &&
+                                        pn.Position.X >= n.Position.X)
+                            .ToList();
+                        var toLeft = childrenWithExternalPartner.Except(toRight).ToList();
+
+                        foreach (var n in toLeft) childNodes.Insert(0, n);
+                        foreach (var n in toRight) childNodes.Add(n);
+
+                        // Recalculate spread
+                        totalChildWidth = childNodes.Count * NodeWidth
+                                        + (childNodes.Count - 1) * HorizontalSpacing;
+                        startX = parentCentreX - totalChildWidth / 2.0;
+                    }
+
                     // Preserve Y (generation row) — only move X
                     for (int i = 0; i < childNodes.Count; i++)
                     {
@@ -291,6 +321,32 @@ namespace FamilyTreeApp.Core
                     double totalChildHeight = childNodes.Count * NodeHeight
                                            + (childNodes.Count - 1) * VerticalSpacing;
                     double startY = parentCentreY - totalChildHeight / 2.0;
+
+                    // Move children with external partners to outermost positions
+                    var siblingIds = new HashSet<string>(childNodes.Select(n => n.Id));
+                    var childrenWithExternalPartner = childNodes
+                        .Where(n => partnerOf.TryGetValue(n.Id, out var pid) && !siblingIds.Contains(pid))
+                        .ToList();
+
+                    if (childrenWithExternalPartner.Any())
+                    {
+                        foreach (var cwp in childrenWithExternalPartner)
+                            childNodes.Remove(cwp);
+
+                        var toBottom = childrenWithExternalPartner
+                            .Where(n => partnerOf.TryGetValue(n.Id, out var pid) &&
+                                        tree.Nodes.FirstOrDefault(x => x.Id == pid) is Node pn &&
+                                        pn.Position.Y >= n.Position.Y)
+                            .ToList();
+                        var toTop = childrenWithExternalPartner.Except(toBottom).ToList();
+
+                        foreach (var n in toTop) childNodes.Insert(0, n);
+                        foreach (var n in toBottom) childNodes.Add(n);
+
+                        totalChildHeight = childNodes.Count * NodeHeight
+                                         + (childNodes.Count - 1) * VerticalSpacing;
+                        startY = parentCentreY - totalChildHeight / 2.0;
+                    }
 
                     // Preserve X (generation column) — only move Y
                     for (int i = 0; i < childNodes.Count; i++)
