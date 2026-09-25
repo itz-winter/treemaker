@@ -35,7 +35,7 @@ public partial class MainWindow : Window
     public static readonly RoutedCommand ZoomInCommand = new();
     public static readonly RoutedCommand ZoomOutCommand = new();
 
-    public MainWindow()
+    public MainWindow(string? startupFilePath = null)
     {
         InitializeComponent();
         
@@ -46,6 +46,7 @@ public partial class MainWindow : Window
         _familyTree = new FamilyTree();
         MainCanvas.SetFamilyTree(_familyTree);
         MainCanvas.SetCommandManager(_commandManager);
+        ApplySettings();
 
         // Initialize toolbar
         InitializeToolbar();
@@ -63,6 +64,11 @@ public partial class MainWindow : Window
         _familyTree.Connections.CollectionChanged += (s, e) => UpdateStatusBar();
 
         UpdateStatusBar();
+
+        if (!string.IsNullOrWhiteSpace(startupFilePath))
+        {
+            OpenTreeFile(startupFilePath);
+        }
     }
     
     private void SetupCommandBindings()
@@ -87,22 +93,35 @@ public partial class MainWindow : Window
         CommandBindings.Add(new CommandBinding(ZoomInCommand, (s, e) => ZoomIn_Click(s, e)));
         CommandBindings.Add(new CommandBinding(ZoomOutCommand, (s, e) => ZoomOut_Click(s, e)));
         
-        // Input bindings (keyboard shortcuts)
-        InputBindings.Add(new KeyBinding(NewTreeCommand, Key.N, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(OpenTreeCommand, Key.O, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(SaveTreeCommand, Key.S, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(SaveAsCommand, Key.S, ModifierKeys.Control | ModifierKeys.Shift));
-        InputBindings.Add(new KeyBinding(UndoCommand, Key.Z, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(RedoCommand, Key.Y, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(DeleteCommand, Key.Delete, ModifierKeys.None));
-        InputBindings.Add(new KeyBinding(ResetViewCommand, Key.R, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(ToggleGridCommand, Key.G, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(ToggleLayoutCommand, Key.F, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(AddNodeCommand, Key.Space, ModifierKeys.None));
-        InputBindings.Add(new KeyBinding(ZoomInCommand, Key.OemPlus, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(ZoomInCommand, Key.Add, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(ZoomOutCommand, Key.OemMinus, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(ZoomOutCommand, Key.Subtract, ModifierKeys.Control));
+        var keybinds = SettingsManager.Current.Keybinds;
+        AddKeyBinding(NewTreeCommand, keybinds.NewFile, Key.N, ModifierKeys.Control);
+        AddKeyBinding(OpenTreeCommand, keybinds.Open, Key.O, ModifierKeys.Control);
+        AddKeyBinding(SaveTreeCommand, keybinds.Save, Key.S, ModifierKeys.Control);
+        AddKeyBinding(UndoCommand, keybinds.Undo, Key.Z, ModifierKeys.Control);
+        AddKeyBinding(RedoCommand, keybinds.Redo, Key.Y, ModifierKeys.Control);
+        AddKeyBinding(DeleteCommand, keybinds.DeleteNode, Key.Delete, ModifierKeys.None);
+        AddKeyBinding(ResetViewCommand, keybinds.ResetView, Key.R, ModifierKeys.None);
+        AddKeyBinding(ToggleGridCommand, keybinds.ToggleGrid, Key.G, ModifierKeys.None);
+        AddKeyBinding(AddNodeCommand, keybinds.AddNode, Key.Z, ModifierKeys.None);
+        AddKeyBinding(ZoomInCommand, keybinds.ZoomIn, Key.OemPlus, ModifierKeys.Control);
+        AddKeyBinding(ZoomOutCommand, keybinds.ZoomOut, Key.OemMinus, ModifierKeys.Control);
+    }
+
+    private void AddKeyBinding(System.Windows.Input.ICommand command, string gestureText, Key fallbackKey, ModifierKeys fallbackModifiers)
+    {
+        try
+        {
+            if (new KeyGestureConverter().ConvertFromString(gestureText) is KeyGesture gesture)
+            {
+                InputBindings.Add(new KeyBinding(command, gesture));
+                return;
+            }
+        }
+        catch (FormatException)
+        {
+        }
+
+        InputBindings.Add(new KeyBinding(command, fallbackKey, fallbackModifiers));
     }
 
     private void InitializeToolbar()
@@ -168,12 +187,18 @@ public partial class MainWindow : Window
 
         if (dialog.ShowDialog() == true)
         {
-            var loadedTree = FileService.LoadTree(dialog.FileName);
-            if (loadedTree != null)
-            {
-                _familyTree = loadedTree;
-                _currentFilePath = dialog.FileName;
-                MainCanvas.SetFamilyTree(_familyTree);
+            OpenTreeFile(dialog.FileName);
+        }
+    }
+
+    private void OpenTreeFile(string filePath)
+    {
+        var loadedTree = FileService.LoadTree(filePath);
+        if (loadedTree != null)
+        {
+            _familyTree = loadedTree;
+            _currentFilePath = filePath;
+            MainCanvas.SetFamilyTree(_familyTree);
                 
                 // Update menu states
                 AllowIncestMenuItem.IsChecked = _familyTree.AllowIncest;
@@ -188,8 +213,7 @@ public partial class MainWindow : Window
                 _familyTree.Connections.CollectionChanged += (s, ev) => UpdateStatusBar();
                 
                 UpdateStatusBar();
-                Title = $"Family Tree Builder - {System.IO.Path.GetFileName(dialog.FileName)}";
-            }
+            Title = $"Family Tree Builder - {System.IO.Path.GetFileName(filePath)}";
         }
     }
 
@@ -803,6 +827,27 @@ public partial class MainWindow : Window
             CurvesStyleMenuItem.IsChecked = false;
             SquareStyleMenuItem.IsChecked = true;
         }
+
+        _familyTree.AlignmentMode = settings.Alignment == "LeftRight"
+            ? AlignmentMode.LeftRight
+            : AlignmentMode.TopDown;
+        MainCanvas.SetAlignment(_familyTree.AlignmentMode == AlignmentMode.LeftRight
+            ? Core.LayoutEngine.AlignmentMode.LeftRight
+            : Core.LayoutEngine.AlignmentMode.TopDown);
+        TopDownMenuItem.IsChecked = _familyTree.AlignmentMode == AlignmentMode.TopDown;
+        LeftRightMenuItem.IsChecked = _familyTree.AlignmentMode == AlignmentMode.LeftRight;
+
+        _familyTree.ShowGenderIcons = settings.ShowGenderIcons;
+        _familyTree.FontFamily = settings.FontFamily;
+        _familyTree.FontSize = settings.FontSize;
+        _familyTree.FontBold = settings.FontBold;
+        _familyTree.FontItalic = settings.FontItalic;
+        MainCanvas.SetSnapToGrid(settings.SnapToGrid);
+        MainCanvas.SetSnapToAngle(settings.SnapToAngle);
+        MainCanvas.SetSnapToGeometry(settings.SnapToGeometry);
+        SnapToGridMenuItem.IsChecked = settings.SnapToGrid;
+        SnapToAngleMenuItem.IsChecked = settings.SnapToAngle;
+        SnapToGeometryMenuItem.IsChecked = settings.SnapToGeometry;
         
         // Apply layout mode
         if (settings.LayoutMode == "Fixed")

@@ -18,7 +18,7 @@ WPF desktop application for creating and managing family trees. The project targ
 - Optional grid overlay.
 - Add nodes and edit node properties (name, gender, royalty, deceased marker).
 - Parent/child/partner connections with multiple connection types:
-	- Biological, Adopted, Step, Partner, FormerPartner, Hidden.
+ 	- Biological, Adopted, Step, Partner, FormerPartner, Hidden.
 - Automatic layout with top‑down or left‑right alignment.
 - Layout mode: fixed (auto) or free (manual positioning).
 - Snap options: grid, angle, geometry (used in free layout mode).
@@ -38,17 +38,17 @@ Top-level structure:
 
 - `Version`
 - `Settings`
-	- `Alignment` (`topdown` or `leftright`)
-	- `AllowIncest`
-	- `AllowThreesome`
+ 	- `Alignment` (`topdown` or `leftright`)
+ 	- `AllowIncest`
+ 	- `AllowThreesome`
 - `Nodes`
-	- `Id`, `Name`, `Gender`, `IsAlive`, `IsRoyal`, `RoyalTitle`, `GroupId`
-	- `X`, `Y`
-	- `BirthDate`, `DeathDate`
+ 	- `Id`, `Name`, `Gender`, `IsAlive`, `IsRoyal`, `RoyalTitle`, `GroupId`
+ 	- `X`, `Y`
+ 	- `BirthDate`, `DeathDate`
 - `Connections`
-	- `Id`, `FromNodeId`, `ToNodeId`, `ConnectionType`
+ 	- `Id`, `FromNodeId`, `ToNodeId`, `ConnectionType`
 - `Groups`
-	- `Id`, `Name`, `Color`, `IsVisible`
+ 	- `Id`, `Name`, `Color`, `IsVisible`
 
 ### App settings on disk
 

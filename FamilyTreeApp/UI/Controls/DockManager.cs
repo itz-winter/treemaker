@@ -17,10 +17,6 @@ namespace FamilyTreeApp.UI.Controls
         private readonly Dictionary<DockPosition, GridSplitter> _splitters = new();
         private readonly List<DockablePanel> _panels = new();
         
-        private DockablePanel? _draggedPanel;
-        private Point _dragStartPoint;
-        private DockPreviewAdorner? _previewAdorner;
-
         public static readonly DependencyProperty CenterContentProperty =
             DependencyProperty.Register(nameof(CenterContent), typeof(UIElement), typeof(DockManager),
                 new PropertyMetadata(null, OnCenterContentChanged));

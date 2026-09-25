@@ -27,12 +27,20 @@ namespace FamilyTreeApp.Core
             {
                 var treeFile = new TreeFile
                 {
-                    Version = 1,
+                    Version = 2,
+                    Name = tree.Name,
                     Settings = new TreeSettings
                     {
                         Alignment = tree.AlignmentMode.ToString().ToLower(),
+                        LineStyle = tree.LineStyle.ToString().ToLower(),
+                        LayoutMode = tree.LayoutMode.ToString().ToLower(),
                         AllowIncest = tree.AllowIncest,
-                        AllowThreesome = tree.AllowThreesome
+                        AllowThreesome = tree.AllowThreesome,
+                        ShowGenderIcons = tree.ShowGenderIcons,
+                        FontFamily = tree.FontFamily,
+                        FontSize = tree.FontSize,
+                        FontBold = tree.FontBold,
+                        FontItalic = tree.FontItalic
                     },
                     Nodes = tree.Nodes.Select(n => new TreeNode
                     {
@@ -46,7 +54,15 @@ namespace FamilyTreeApp.Core
                         X = n.Position.X,
                         Y = n.Position.Y,
                         BirthDate = n.BirthDate,
-                        DeathDate = n.DeathDate
+                        DeathDate = n.DeathDate,
+                        IsLocked = n.IsLocked,
+                        ShowContinuationUp = n.ShowContinuationUp,
+                        ShowContinuationDown = n.ShowContinuationDown,
+                        ShowNoDescendants = n.ShowNoDescendants,
+                        IsAdopted = n.IsAdopted,
+                        Generation = n.Generation,
+                        Width = n.Width,
+                        Height = n.Height
                     }).ToList(),
                     Connections = tree.Connections.Select(c => new TreeConnection
                     {
@@ -61,6 +77,18 @@ namespace FamilyTreeApp.Core
                         Name = g.Name,
                         Color = g.Color.ToString(),
                         IsVisible = g.IsVisible
+                    }).ToList(),
+                    TextBoxes = tree.TextBoxes.Select(t => new TreeTextBox
+                    {
+                        Id = t.Id,
+                        Text = t.Text,
+                        X = t.Position.X,
+                        Y = t.Position.Y,
+                        Width = t.Width,
+                        Height = t.Height,
+                        FontFamily = t.FontFamily,
+                        FontSize = t.FontSize,
+                        TextColor = t.TextColor
                     }).ToList()
                 };
 
@@ -93,7 +121,10 @@ namespace FamilyTreeApp.Core
                     return null;
                 }
 
-                var tree = new FamilyTree();
+                var tree = new FamilyTree
+                {
+                    Name = treeFile.Name ?? "Untitled Tree"
+                };
 
                 // Apply settings
                 if (treeFile.Settings != null)
@@ -101,8 +132,15 @@ namespace FamilyTreeApp.Core
                     tree.AlignmentMode = treeFile.Settings.Alignment?.ToLower() == "leftright" 
                         ? AlignmentMode.LeftRight 
                         : AlignmentMode.TopDown;
+                    tree.LineStyle = ParseEnum<LineStyle>(treeFile.Settings.LineStyle);
+                    tree.LayoutMode = ParseEnum<LayoutMode>(treeFile.Settings.LayoutMode);
                     tree.AllowIncest = treeFile.Settings.AllowIncest;
                     tree.AllowThreesome = treeFile.Settings.AllowThreesome;
+                    tree.ShowGenderIcons = treeFile.Settings.ShowGenderIcons;
+                    tree.FontFamily = treeFile.Settings.FontFamily ?? tree.FontFamily;
+                    tree.FontSize = treeFile.Settings.FontSize > 0 ? treeFile.Settings.FontSize : tree.FontSize;
+                    tree.FontBold = treeFile.Settings.FontBold;
+                    tree.FontItalic = treeFile.Settings.FontItalic;
                 }
 
                 // Load groups first (nodes may reference them)
@@ -136,9 +174,35 @@ namespace FamilyTreeApp.Core
                             GroupId = n.GroupId,
                             Position = new Point(n.X, n.Y),
                             BirthDate = n.BirthDate,
-                            DeathDate = n.DeathDate
+                            DeathDate = n.DeathDate,
+                            IsLocked = n.IsLocked,
+                            ShowContinuationUp = n.ShowContinuationUp,
+                            ShowContinuationDown = n.ShowContinuationDown,
+                            ShowNoDescendants = n.ShowNoDescendants,
+                            IsAdopted = n.IsAdopted,
+                            Generation = n.Generation,
+                            Width = n.Width,
+                            Height = n.Height
                         };
                         tree.Nodes.Add(node);
+                    }
+                }
+
+                if (treeFile.TextBoxes != null)
+                {
+                    foreach (var t in treeFile.TextBoxes)
+                    {
+                        tree.TextBoxes.Add(new CanvasText
+                        {
+                            Id = t.Id ?? Guid.NewGuid().ToString(),
+                            Text = t.Text ?? "Text",
+                            Position = new Point(t.X, t.Y),
+                            Width = t.Width,
+                            Height = t.Height,
+                            FontFamily = t.FontFamily ?? "Segoe UI",
+                            FontSize = t.FontSize > 0 ? t.FontSize : 14,
+                            TextColor = t.TextColor ?? "#FFFFFF"
+                        });
                     }
                 }
 
@@ -200,17 +264,26 @@ namespace FamilyTreeApp.Core
     public class TreeFile
     {
         public int Version { get; set; } = 1;
+        public string? Name { get; set; }
         public TreeSettings? Settings { get; set; }
         public List<TreeNode>? Nodes { get; set; }
         public List<TreeConnection>? Connections { get; set; }
         public List<TreeGroup>? Groups { get; set; }
+        public List<TreeTextBox>? TextBoxes { get; set; }
     }
 
     public class TreeSettings
     {
         public string? Alignment { get; set; }
+        public string? LineStyle { get; set; }
+        public string? LayoutMode { get; set; }
         public bool AllowIncest { get; set; }
         public bool AllowThreesome { get; set; }
+        public bool ShowGenderIcons { get; set; }
+        public string? FontFamily { get; set; }
+        public double FontSize { get; set; } = 14;
+        public bool FontBold { get; set; }
+        public bool FontItalic { get; set; }
     }
 
     public class TreeNode
@@ -226,6 +299,14 @@ namespace FamilyTreeApp.Core
         public double Y { get; set; }
         public DateTime? BirthDate { get; set; }
         public DateTime? DeathDate { get; set; }
+        public bool IsLocked { get; set; }
+        public bool ShowContinuationUp { get; set; }
+        public bool ShowContinuationDown { get; set; }
+        public bool ShowNoDescendants { get; set; }
+        public bool IsAdopted { get; set; }
+        public int Generation { get; set; }
+        public double Width { get; set; } = double.NaN;
+        public double Height { get; set; } = double.NaN;
     }
 
     public class TreeConnection
@@ -242,6 +323,19 @@ namespace FamilyTreeApp.Core
         public string? Name { get; set; }
         public string? Color { get; set; }
         public bool IsVisible { get; set; } = true;
+    }
+
+    public class TreeTextBox
+    {
+        public string? Id { get; set; }
+        public string? Text { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public string? FontFamily { get; set; }
+        public double FontSize { get; set; }
+        public string? TextColor { get; set; }
     }
 
     #endregion

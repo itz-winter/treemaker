@@ -91,9 +91,7 @@
 
         <!-- Runtime Files - All DLLs and dependencies from publish folder -->
         <ComponentGroup Id="RuntimeComponents" Directory="INSTALLFOLDER">
-            <Files Include="..\publish\*.dll">
-                <Exclude Files="..\publish\FamilyTreeBuilder.dll"/>
-            </Files>
+            <Files Include="..\publish\*.dll"/>
             <Files Include="..\publish\*.json"/>
             <Files Include="..\publish\*.pdb"/>
         </ComponentGroup>

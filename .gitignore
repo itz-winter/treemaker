@@ -3,3 +3,4 @@ FamilyTreeApp/bin/
 FamilyTreeApp/obj/
 Installer/FamilyTreeBuilder.msi
 Installer/FamilyTreeBuilder.wixpdb
+.vscode

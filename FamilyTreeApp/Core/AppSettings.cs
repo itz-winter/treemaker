@@ -82,6 +82,13 @@ namespace FamilyTreeApp.Core
             LineStyle = defaults.LineStyle;
             LayoutMode = defaults.LayoutMode;
             CrownDisplay = defaults.CrownDisplay;
+            GenderIconStyle = defaults.GenderIconStyle;
+            SnapToAngle = defaults.SnapToAngle;
+            SnapToGrid = defaults.SnapToGrid;
+            SnapToGeometry = defaults.SnapToGeometry;
+            GridSnapSize = defaults.GridSnapSize;
+            AngleSnapDegrees = defaults.AngleSnapDegrees;
+            ConfirmUnsavedChanges = defaults.ConfirmUnsavedChanges;
             NodeFillColor = defaults.NodeFillColor;
             NodeBorderColor = defaults.NodeBorderColor;
             NodeTextColor = defaults.NodeTextColor;

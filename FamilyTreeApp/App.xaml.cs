@@ -1,5 +1,7 @@
 ﻿using System.Configuration;
 using System.Data;
+using System;
+using System.Linq;
 using System.Windows;
 using FamilyTreeApp.Core;
 using FamilyTreeApp.UI.Windows;
@@ -33,7 +35,9 @@ public partial class App : Application
         }
         
         // Show main window
-        var mainWindow = new MainWindow();
+        var startupFilePath = e.Args.FirstOrDefault(argument =>
+            argument.EndsWith(".tree", StringComparison.OrdinalIgnoreCase));
+        var mainWindow = new MainWindow(startupFilePath);
         mainWindow.Show();
     }
 }

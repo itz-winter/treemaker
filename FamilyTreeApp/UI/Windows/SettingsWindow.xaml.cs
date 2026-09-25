@@ -143,9 +143,9 @@ namespace FamilyTreeApp.UI.Windows
             _settings.CrownDisplay = GetSelectedTag(CrownDisplayComboBox);
             
             // Font
-            if (FontFamilyComboBox.SelectedItem is System.Windows.Media.FontFamily selectedFont)
+            if (FontFamilyComboBox.SelectedItem is ComboBoxItem fontItem && fontItem.Tag != null)
             {
-                _settings.FontFamily = selectedFont.Source;
+                _settings.FontFamily = fontItem.Tag.ToString() ?? _settings.FontFamily;
             }
             if (FontSizeComboBox.SelectedItem is ComboBoxItem sizeItem && sizeItem.Tag != null)
             {
