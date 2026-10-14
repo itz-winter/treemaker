@@ -10,7 +10,7 @@ WPF desktop application for creating and managing family trees. The project targ
 - `Installer/` — WiX v4 installer definitions.
 - `publish/` — Output folder used by the installer build script.
 
-## Features (from code)
+## Features
 
 - Create, open, and save `.tree` files.
 - Export preview window with PNG and SVG export.
@@ -22,9 +22,9 @@ WPF desktop application for creating and managing family trees. The project targ
 - Automatic layout with top‑down or left‑right alignment.
 - Layout mode: fixed (auto) or free (manual positioning).
 - Snap options: grid, angle, geometry (used in free layout mode).
-- Toolbar customization (saved to disk).
-- Groups and group colors.
-- Connection style settings (color, width, dash style by connection type).
+- Toolbar customisation (saved to disk).
+- Groups and group colours.
+- Connection style settings (colour, width, dash style by connection type).
 - Tree font settings (family, size, bold, italic).
 - Settings and keybinds windows.
 
@@ -48,13 +48,13 @@ Top-level structure:
 - `Connections`
  	- `Id`, `FromNodeId`, `ToNodeId`, `ConnectionType`
 - `Groups`
- 	- `Id`, `Name`, `Color`, `IsVisible`
+ 	- `Id`, `Name`, `Colour`, `IsVisible`
 
 ### App settings on disk
 
 The app stores settings and toolbar configuration in `%AppData%\FamilyTreeApp`:
 
-- `settings.json` — `AppSettings` (theme, layout, snapping, colors, font, keybinds, connection styles).
+- `settings.json` — `AppSettings` (theme, layout, snapping, colours, font, keybinds, connection styles).
 - `toolbar.json` — toolbar layout and custom tools.
 
 ## Installer build
